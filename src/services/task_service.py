@@ -216,7 +216,7 @@ class TaskService:
             }
             if analysis_target is not None:
                 process_kwargs["analysis_target"] = analysis_target
-            result = pipeline.process_single_stock(**process_kwargs)
+            result = pipeline.process_single_stock_with_quality_notify(**process_kwargs)
 
             if result and result.success:
                 result_data = {

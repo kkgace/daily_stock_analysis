@@ -1459,6 +1459,33 @@ class HistoryService:
                     "",
                 ])
 
+        # ========== 建议回测（近 N 天命中率卡片）==========
+        # 与通知/分享图共用同一 formatter，保证三条渲染路径内容一致；
+        # 任何失败只省略该卡（fail-open），不影响报告输出。
+        # 注意：历史报告重建走 refresh=False——GET 请求不能带写副作用
+        # （run_outcomes 会 upsert outcome 行 + 读行情），且卡片按
+        # 当前时间统计会让同一份历史记录在不同时间查看渲染出不同内容。
+        # 生成时已评估过的信号其 outcome 行仍在，卡片正常展示；
+        # 从未评估过的旧报告不出卡（快照语义）。
+        try:
+            track_days = getattr(get_config(), "report_signal_track_days", 30)
+            if track_days > 0:
+                from src.services.decision_signal_outcome_service import (
+                    DecisionSignalOutcomeService,
+                )
+                from src.services.decision_signal_summary import format_signal_track_record
+
+                track_stats = DecisionSignalOutcomeService().get_stock_stats(
+                    stock_code=result.code,
+                    days=track_days,
+                    refresh=False,
+                )
+                track_card = format_signal_track_record(track_stats, report_language)
+                if track_card:
+                    report_lines.append(track_card)
+        except Exception as exc:
+            logger.debug("Signal track record skipped for %s: %s", result.code, exc)
+
         # ========== 底部 ==========
         report_lines.extend([
             "---",

@@ -235,26 +235,82 @@ def _lots_to_shares(volume: Any) -> Any:
         return volume
 
 
+def _shares_passthrough(volume: Any) -> Any:
+    """科创板行的成交量单位本身就是「股」：仅做数值归一，不做手→股换算。"""
+
+    try:
+        return float(volume)
+    except (TypeError, ValueError):
+        return volume
+
+
+# 手/股证据判定阈值：同一响应内 amount / (volume × close) 的中位数。
+# 手计响应 ≈ 100×(vwap/close)（典型 50~200），股计响应 ≈ vwap/close
+# （典型 0.5~2）；20 倍阈值两侧分离度大，A 股涨跌停约束下不会交叠。
+# 前复权对 close/volume 的调整在乘积上互消，不影响该比值。
+_LOTS_EVIDENCE_RATIO = 20.0
+_SHARES_EVIDENCE_MIN_RATIO = 0.05
+
+
+def _infer_volume_scale(raw_rows: list[dict[str, Any]], *, default_scale: float) -> float:
+    """用同一响应内 amount/close 的中位数证据判定成交量单位（自校验）。
+
+    返回手→股换算系数：100.0=原始值以「手」计、1.0=已是「股」。
+    无可用证据（腾讯部分行情不返回 amount）或证据退化时，回落到
+    文档契约默认值（科创板=股、其它板块=手，Issue #2350）——
+    即使线上行为与文档不符，带 amount 的响应也能自行纠正换算方向。
+    """
+
+    ratios: list[float] = []
+    for row in raw_rows:
+        try:
+            volume = float(row["volume"])
+            amount = float(row["amount"])
+            close = float(row["close"])
+        except (TypeError, ValueError):
+            continue
+        if volume <= 0 or amount <= 0 or close <= 0:
+            continue
+        ratios.append(amount / (volume * close))
+    if not ratios:
+        return default_scale
+    ratios.sort()
+    median_ratio = ratios[len(ratios) // 2]
+    if median_ratio >= _LOTS_EVIDENCE_RATIO:
+        return 100.0
+    if median_ratio >= _SHARES_EVIDENCE_MIN_RATIO:
+        return 1.0
+    return default_scale
+
+
 def _extract_kline_rows(payload: dict[str, Any], *, symbol: str) -> list[dict[str, Any]]:
     data = payload.get("data") if isinstance(payload, dict) else None
     item = data.get(symbol) if isinstance(data, dict) else None
     if not isinstance(item, dict):
         return []
     rows = item.get("qfqday") or item.get("day") or []
-    result: list[dict[str, Any]] = []
+    raw_rows: list[dict[str, Any]] = []
     for row in rows:
         if not isinstance(row, list) or len(row) < 6:
             continue
         amount: Optional[Any] = row[6] if len(row) > 6 else None
-        result.append(
+        raw_rows.append(
             {
                 "date": str(row[0]),
                 "open": row[1],
                 "close": row[2],
                 "high": row[3],
                 "low": row[4],
-                "volume": _lots_to_shares(row[5]),
+                "volume": row[5],
                 "amount": amount,
             }
         )
-    return result
+    # Issue #2350：腾讯日线对科创板（688）返回的成交量单位是「股」，
+    # 其余板块是「手」。以文档契约为默认，同一响应内带 amount 佐证时
+    # 用中位数证据自校验换算方向（文档结论过时也不会写坏数据）。
+    default_scale = 1.0 if str(symbol).lower().startswith("sh688") else 100.0
+    scale = _infer_volume_scale(raw_rows, default_scale=default_scale)
+    convert_volume = _lots_to_shares if scale == 100.0 else _shares_passthrough
+    for raw_row in raw_rows:
+        raw_row["volume"] = convert_volume(raw_row["volume"])
+    return raw_rows

@@ -21,6 +21,7 @@ DECISION_SIGNAL_PATHS = (
     "/api/v1/decision-signals/outcomes/run",
     "/api/v1/decision-signals/outcomes",
     "/api/v1/decision-signals/outcomes/stats",
+    "/api/v1/decision-signals/outcomes/stats/{stock_code}",
     "/api/v1/decision-signals/latest/{stock_code}",
     "/api/v1/decision-signals/{signal_id}/outcomes",
     "/api/v1/decision-signals/{signal_id}/feedback",
@@ -40,6 +41,8 @@ DECISION_SIGNAL_SCHEMAS = (
     "DecisionSignalOutcomeRunResponse",
     "DecisionSignalOutcomeStatsBucket",
     "DecisionSignalOutcomeStatsResponse",
+    "DecisionSignalStockOutcomeStatsActionBucket",
+    "DecisionSignalStockOutcomeStatsResponse",
     "DecisionSignalProfileCalibration",
     "DecisionSignalProfileCalibrationBreakdowns",
     "DecisionSignalProfileCalibrationBucket",
@@ -64,12 +67,16 @@ P6_SIGNAL_LINKED_SCHEMAS = (
 DATA_CAPABILITY_PATHS = (
     "/api/v1/data/overview",
     "/api/v1/data/capabilities",
+    "/api/v1/data/anomalies",
 )
 DATA_CAPABILITY_SCHEMAS = (
     "DataCapabilityOverviewResponse",
     "DataDatasetQuality",
     "DataPriorityView",
     "DataProviderCapability",
+    "DataQualityAnomaliesResponse",
+    "DataQualityAnomalyItem",
+    "DataQualityAnomalySummary",
 )
 RESEARCH_ARTIFACT_SCHEMAS = (
     "ResearchArtifact",

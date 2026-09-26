@@ -14,6 +14,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [文档] 将仓库内所有 SerpApi 链接统一更新为新的赞助转化追踪地址。
 - [修复] 智能导入兼容带 UTF-8 BOM 的 CSV 与剪贴板文本，避免 `code` 表头被误当成数据并丢失有效股票代码。
 - [修复] 为 AkShare 大盘涨跌统计的东财与新浪降级调用增加可强制终止的子进程超时，避免外部接口无响应时长期占用分析线程（Fixes #2340）。
+- [新功能] 数据入库质量护栏：`save_daily_data` 写入前运行量纲交叉校验（amount vs volume×close）、近 10 根 K 线中位数突变检测与跨源同日一致性检查，异常记录到新表 `stock_data_anomalies`（只记录不阻断入库；已 repaired 的异常被同源再次检出时自动回开为 open，dismissed 尊重人工判断保持不变），`DATA_QUALITY_GUARD_ENABLED=false` 可关闭（关闭后零额外查询）。
+- [新功能] 新增 `python main.py --data-quality` 数据质量扫描与修复 CLI：只读报告近 N 天存量数据的量纲错误与源切换边界突变（`--data-quality-code` 限定股票、`--data-quality-days` 限定窗口），`--data-quality-apply` 将有 amount 佐证的量纲错误行修复为 volume=amount/close 并把对应异常置为 repaired（Refs #2350 一类手/股单位问题的存量暴露与修复）。
+- [新功能] 新增单股建议后验统计 `DecisionSignalOutcomeService.get_stock_stats` 与只读 API `GET /api/v1/decision-signals/outcomes/stats/{stock_code}`（`days` 窗口，默认 30 天；hit/miss/neutral、命中率 hit/(hit+miss)、按 action 分桶），静态 OpenAPI 已同步。
+- [新功能] 个股报告新增「建议回测」卡片（`REPORT_SIGNAL_TRACK_DAYS`，默认 30，0 关闭）：展示该股近 N 天 AI 决策信号的后验命中情况与分动作统计，通知/分享图/Web 报告三条渲染路径共用同一 formatter，无已完成评估或配置关闭时自动省略整卡。
+- [新功能] 新增只读 API `GET /api/v1/data/anomalies`：分页列出 `stock_data_anomalies` 异常记录（status/code/kind/limit 过滤）并返回全量状态汇总，`details/suggested_fix` 解析为结构化对象；静态 OpenAPI 已同步。
+- [新功能] Web 设置页数据源分类新增「数据质量异常」面板：展示异常状态计数徽章、状态筛选与明细表（类型中英文标签、严重级别/状态 Badge、可修复标记），空态区分"无待处理异常"与"筛选无结果"，只读视图不提供写操作。
+- [新功能] 数据质量异常接入通知渠道：分析任务收尾时把本轮新发现的日线异常聚合成一条告警，经 `NOTIFICATION_SYSTEM_ERROR_CHANNELS` 路由推送（`DATA_QUALITY_NOTIFY_ENABLED` 默认 true），按 kind 聚合截断、critical 升 error 级、守护线程 fail-open，不阻断分析主流程；文档同步 system_error 路由"当前生产者"表述（含此前已上线的超时部分完成通知）。
+- [修复] 量纲自动修复增加二级置信门槛：仅当量纲比值接近已知单位换算错误（≈100 倍量级）且修复值与近 10 根成交量中位数同数量级时才写库，无涨跌停市场闪崩日 vwap/close 的正常极端偏差（5~19 倍）只报告不修改，防止 `--data-quality-apply` 把正确数据改坏。
+- [修复] 量纲修复幂等补标与台账补录：上一轮已修值但未标状态的记录重跑时补标 repaired（不再永久卡 open），护栏启用前的存量坏行修复时先补录台账记录再置 repaired，apply 进程异常退出 CLI 显式报错而非静默忽略。
+- [修复] 数据质量异常列表按 severity 字符串排序导致 warning 排在 critical 之前：改用显映射排序保证 critical 优先展示；异常告警的计数与 critical 判定改走 SQL 全量聚合，超 500 条时消息标注截断且不再降级；降噪 key 增加批次日期维度，跨日新异常不被前一天告警吞掉，冷却 key 保留 kind 维度。
+- [修复] 腾讯日线对科创板（688）返回的成交量单位是「股」，与其它板块（手）不一致：`TencentFetcher` 此前统一 `×100` 导致科创板 volume 入库偏大 100 倍（Issue #2350 的源头路径）；现按板块区分换算并带运行时自校验——同一响应内有 amount 佐证时用 `amount/(volume×close)` 中位数证据判定单位（证据优先于文档契约，线上行为漂移不会被带偏；无 amount 时回落文档默认），附 688/证据纠正/退化证据/无佐证回归测试（Fixes #2350 入库新增路径）。
+- [修复] 数据质量异常告警三处窗口缺口：`run()` 中途抛异常时本轮已入库异常仍会在 finally 中推送（此前崩溃轮次静默丢失）；单股分析入口（API/任务队列/CLI 单股）收尾接入同一告警钩子（批量循环内部不经过该入口，不会逐股重复触发）；分析进程退出前有界 join 告警线程，短命 CLI 进程不再丢最后一条系统告警。
+- [修复] 单股推送与单股分享图海报丢失「建议回测」卡片：`generate_single_stock_report` 收尾挂卡（与 dashboard 同源），分享图 `StockPoster` 整段提取并渲染卡片小节，文档承诺的报告/推送/分享图渲染路径全部兑现。
+- [修复] 「建议回测」卡片与单股统计 API 的「N 条」按评估结果行数计，同一信号多周期评估会重复膨胀（2 条信号显示成 8 条）：改为按信号去重，多周期评估取信号声明周期的评估行；全局 stats 接口保持既有按行口径不变，卡片脚注与 API 描述同步更新。
+- [修复] Web 历史报告重建改为只读（不再在 GET 请求中触发 outcome 评估写库），历史报告卡片回归快照语义；建议后验统计 `days<=0` 由静默钳 1 天改为显式 `ValueError`；懒评估候选查询增加统计窗口约束，长信号史股票不再全量扫描。
+- [修复] Web 数据质量异常面板：首个请求返回前不再闪现"未发现异常"假空态；交易日列直接展示原 `YYYY-MM-DD` 字符串（修复西时区因 UTC 解析偏移一天）；列表达 200 行上限时显示截断提示（中英文案）。
+- [修复] `--data-quality-apply` 单独使用时直接报错退出（此前被静默忽略并落入默认完整分析流程），`--data-quality-days` 传 0/负数报错退出（此前静默变为 90 天）。
+- [测试] ENV_FILE 密闭 fixture 增加 dotenv 导出键快照恢复：堵住临时 .env 键泄漏到进程环境并被 bootstrap-override 重捕获压过真实 .env 的路径；补充 apply 置信门槛/幂等补标/台账补录/severity 排序/告警截断计数、单股与分享图卡片、per-stock stats 端点请求级用例（days 边界 422、market 400、空数据 null 形状、分桶 `{action}` 字段名）与 OpenAPI/docs 路径同步守卫。
 
 <!-- 新条目格式：- [类型] 描述（类型取值：新功能/改进/修复/文档/测试/chore）-->
 <!-- 每条独立一行追加到本段末尾，无需分类标题，合并时冲突最小 -->

@@ -122,6 +122,9 @@ Go to your forked repo → `Settings` → `Secrets and variables` → `Actions` 
 | `REPORT_INTEGRITY_ENABLED` | Enable report integrity checks, retry or placeholder on missing fields (default `true`) | Optional |
 | `REPORT_INTEGRITY_RETRY` | Integrity retry count (default `1`, `0` = placeholder only) | Optional |
 | `REPORT_HISTORY_COMPARE_N` | History signal comparison count, `0` off (default), `>0` enable | Optional |
+| `REPORT_SIGNAL_TRACK_DAYS` | Per-stock "Signal Track Record" card in reports: hit rate of AI decision signals created in the last N days, `0` disables (default 30); omitted automatically for stocks without evaluated signals | Optional |
+| `DATA_QUALITY_GUARD_ENABLED` | Daily-data ingest quality guard: detects unit-scale errors / magnitude jumps / cross-source mismatches before persisting and records them to `stock_data_anomalies` without blocking ingestion (default `true`); pairs with `python main.py --data-quality` scan and `--data-quality-apply` repair, see [data source stability doc](data-source-stability.md) | Optional |
+| `DATA_QUALITY_NOTIFY_ENABLED` | Data quality anomaly notify: at the end of each analysis run, push one aggregated alert for daily-data anomalies newly recorded this run via the `NOTIFICATION_SYSTEM_ERROR_CHANNELS` route (default `true`) | Optional |
 | `ANALYSIS_DELAY` | Delay between stock analysis and market review (seconds) to avoid API rate limits, e.g., `10` | Optional |
 | `SAVE_CONTEXT_SNAPSHOT` | Whether to persist analysis-history `context_snapshot`; defaults to `true`. Set to `false` or use `--no-context-snapshot` to stop persisting the full snapshot | Optional |
 | `MARKDOWN_TO_IMAGE_CHANNELS` | Notification channels that receive report images: telegram,wechat,custom,email,slack | Optional |
@@ -132,7 +135,7 @@ Go to your forked repo → `Settings` → `Secrets and variables` → `Actions` 
 | `SHARE_IMAGE_XIAOHONGSHU_QR_PATH` | QR image path, absolute or relative to the project root; when all Xiaohongshu settings are empty, uses the bundled QR | Optional |
 | `NOTIFICATION_REPORT_CHANNELS` | Report route channels for single-stock, aggregate daily, market review, merged push, and Feishu document success notifications. Empty means all configured channels | Optional |
 | `NOTIFICATION_ALERT_CHANNELS` | Alert route channels for EventMonitor notifications. Empty means all configured channels | Optional |
-| `NOTIFICATION_SYSTEM_ERROR_CHANNELS` | Reserved system_error route channels. No automatic system error producer is added in P3; empty means all configured channels | Optional |
+| `NOTIFICATION_SYSTEM_ERROR_CHANNELS` | system_error route channels (runtime timeout partial-completion notice, data quality guard aggregated alerts); empty means all configured channels | Optional |
 | `NOTIFICATION_DEDUP_TTL_SECONDS` | Dedup TTL in seconds. `0` disables dedup; the same stable dedup key sends only once within the TTL | Optional |
 | `NOTIFICATION_COOLDOWN_SECONDS` | Cooldown window in seconds. `0` disables cooldown; the same cooldown key is rate-limited within the window | Optional |
 | `NOTIFICATION_QUIET_HOURS` | Quiet-hours window in `HH:MM-HH:MM` format, supports overnight ranges. Empty disables quiet hours | Optional |
@@ -296,7 +299,7 @@ For the notification baseline, diagnostics, and deployment notes, see [Notificat
 | `ASTRBOT_TOKEN` | Optional AstrBot Bearer Token | Optional |
 | `NOTIFICATION_REPORT_CHANNELS` | Report route channels, comma-separated. Allowed values: wechat,feishu,telegram,email,pushover,ntfy,gotify,pushplus,serverchan3,custom,discord,slack,astrbot | Optional |
 | `NOTIFICATION_ALERT_CHANNELS` | Alert route channels, comma-separated. Empty keeps all configured channels | Optional |
-| `NOTIFICATION_SYSTEM_ERROR_CHANNELS` | Reserved system_error route channels, comma-separated. Empty keeps all configured channels | Optional |
+| `NOTIFICATION_SYSTEM_ERROR_CHANNELS` | system_error route channels, comma-separated. Empty keeps all configured channels | Optional |
 | `NOTIFICATION_DEDUP_TTL_SECONDS` | Dedup TTL in seconds. `0` disables dedup | Optional |
 | `NOTIFICATION_COOLDOWN_SECONDS` | Cooldown window in seconds. `0` disables cooldown | Optional |
 | `NOTIFICATION_QUIET_HOURS` | Quiet-hours window in `HH:MM-HH:MM` format, supports overnight ranges | Optional |

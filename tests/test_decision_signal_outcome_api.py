@@ -31,26 +31,46 @@ def _reset_auth_globals() -> None:
     auth._rate_limit = {}
 
 
+def _env_snapshot(env_text: str) -> dict:
+    """快照临时 .env 各键的进程内原值。
+
+    load_dotenv(override=False) 会把临时 .env 中缺失的键导出到
+    os.environ 且 teardown 无人清理；泄漏键还会在 Config 单例重建时被
+    bootstrap-override 重捕获、压过真实 .env。按快照恢复堵住两条路径。
+    """
+    keys = set()
+    for line in env_text.splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            keys.add(line.split("=", 1)[0].strip())
+    return {key: os.environ.get(key) for key in keys}
+
+
+def _env_restore(snapshot: dict) -> None:
+    for key, value in snapshot.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
+
+
 @pytest.fixture()
 def client_and_db(tmp_path):
     old_env_file = os.environ.get("ENV_FILE")
-    old_database_path = os.environ.get("DATABASE_PATH")
     env_path = tmp_path / ".env"
     db_path = tmp_path / "decision_signal_outcome_api.db"
     static_dir = tmp_path / "empty-static"
     static_dir.mkdir()
-    env_path.write_text(
-        "\n".join(
-            [
-                "STOCK_LIST=600519",
-                "GEMINI_API_KEY=test",
-                "ADMIN_AUTH_ENABLED=false",
-                f"DATABASE_PATH={db_path}",
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
+    env_text = "\n".join(
+        [
+            "STOCK_LIST=600519",
+            "GEMINI_API_KEY=test",
+            "ADMIN_AUTH_ENABLED=false",
+            f"DATABASE_PATH={db_path}",
+        ]
+    ) + "\n"
+    env_snapshot = _env_snapshot(env_text)
+    env_path.write_text(env_text, encoding="utf-8")
     os.environ["ENV_FILE"] = str(env_path)
     os.environ["DATABASE_PATH"] = str(db_path)
     _reset_auth_globals()
@@ -63,16 +83,13 @@ def client_and_db(tmp_path):
         yield client, db
     finally:
         DatabaseManager.reset_instance()
-        Config.reset_instance()
+        _env_restore(env_snapshot)
         _reset_auth_globals()
         if old_env_file is None:
             os.environ.pop("ENV_FILE", None)
         else:
             os.environ["ENV_FILE"] = old_env_file
-        if old_database_path is None:
-            os.environ.pop("DATABASE_PATH", None)
-        else:
-            os.environ["DATABASE_PATH"] = old_database_path
+        Config.reset_instance()
 
 
 def _payload(**overrides):
@@ -319,3 +336,67 @@ def test_outcome_run_uses_hk_alias_stock_code_filter(client_and_db) -> None:
     assert force_data["evaluated"] == 1
     assert force_data["updated"] == 1
     assert force_data["items"][0]["signal_id"] == signal_id
+
+
+def test_get_stock_outcome_stats_param_validation(client_and_db) -> None:
+    """days 边界 422（Query ge=1/le=365）、非法 market 400。"""
+
+    client, _db = client_and_db
+
+    for bad_days in ("0", "366", "-1", "abc"):
+        resp = client.get(
+            f"/api/v1/decision-signals/outcomes/stats/600519",
+            params={"days": bad_days},
+        )
+        assert resp.status_code == 422, f"days={bad_days} 应被 Query 校验拦截"
+
+    resp = client.get(
+        "/api/v1/decision-signals/outcomes/stats/600519",
+        params={"market": "xx"},
+    )
+    assert resp.status_code == 400, resp.text
+
+
+def test_get_stock_outcome_stats_empty_returns_null_shape(client_and_db) -> None:
+    """合法代码无数据：200 + hit_rate_pct null + 空分桶（无 NaN）。"""
+
+    client, _db = client_and_db
+
+    resp = client.get("/api/v1/decision-signals/outcomes/stats/600519")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["stock_code"] == "600519"
+    assert body["total"] == 0
+    assert body["hit_rate_pct"] is None
+    assert body["avg_stock_return_pct"] is None
+    assert body["action_breakdown"] == []
+    assert body["window_days"] == 30
+
+
+def test_get_stock_outcome_stats_action_bucket_field_names(client_and_db) -> None:
+    """有评估数据时：分桶字段名是 {action}（服务层 {dimension,value} 的
+    端点转换契约），统计值与 outcome 行一致。"""
+
+    client, db = client_and_db
+    created_resp = client.post("/api/v1/decision-signals", json=_payload())
+    assert created_resp.status_code == 200, created_resp.text
+    signal_id = created_resp.json()["item"]["id"]
+    _seed_bars(db)
+    run_resp = client.post(
+        "/api/v1/decision-signals/outcomes/run",
+        json={"signal_id": signal_id},
+    )
+    assert run_resp.status_code == 200, run_resp.text
+
+    resp = client.get("/api/v1/decision-signals/outcomes/stats/600519")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["completed"] == 1
+    assert body["hit"] == 1
+    assert isinstance(body["hit_rate_pct"], (int, float))
+    buckets = body["action_breakdown"]
+    assert buckets, "命中信号必须出现在分桶里"
+    assert buckets[0]["action"] == "buy"
+    assert "dimension" not in buckets[0] and "value" not in buckets[0]
+    assert buckets[0]["total"] == 1
+    assert buckets[0]["hit"] == 1

@@ -21,6 +21,7 @@ from api.v1.schemas.decision_signals import (
     DecisionSignalOutcomeRunRequest,
     DecisionSignalOutcomeRunResponse,
     DecisionSignalOutcomeStatsResponse,
+    DecisionSignalStockOutcomeStatsResponse,
     DecisionSignalReassessRequest,
     DecisionSignalReassessErrorResponse,
     DecisionSignalReassessResponse,
@@ -321,6 +322,64 @@ def get_outcome_stats(
         raise _bad_request(exc)
     except Exception as exc:
         raise _internal_error("Get decision signal outcome stats failed", exc)
+
+
+@router.get(
+    "/outcomes/stats/{stock_code}",
+    response_model=DecisionSignalStockOutcomeStatsResponse,
+    responses={
+        **AUTH_RESPONSE,
+        400: {"model": ErrorResponse, "description": "查询参数非法"},
+        422: {"model": ErrorResponse, "description": "路径或查询参数校验失败"},
+        500: {"model": ErrorResponse, "description": "统计失败"},
+    },
+    summary="查询单只股票的建议后验统计",
+    description=(
+        "统计该股票近 N 天（默认 30）DecisionSignal 的后验表现："
+        "hit/miss/neutral、总体命中率（hit/(hit+miss)，不含 neutral）、"
+        "平均区间收益与按 action 分桶。每条信号只计一次：多周期评估时"
+        "取信号声明周期的评估行（'N 条'是信号数而非 outcome 行数）。"
+        "只读接口：不触发 outcome 重算，历史 outcome 仅在调用 "
+        "POST /outcomes/run 后存在。"
+    ),
+    operation_id="getDecisionSignalStockOutcomeStats",
+)
+def get_stock_outcome_stats(
+    stock_code: str,
+    days: int = Query(30, ge=1, le=365),
+    market: Optional[str] = Query(None),
+    horizons: Optional[List[str]] = Query(None),
+    engine_version: Optional[str] = Query(None),
+    statuses: Optional[List[str]] = Query(None),
+) -> DecisionSignalStockOutcomeStatsResponse:
+    service = DecisionSignalOutcomeService()
+    try:
+        stats = service.get_stock_stats(
+            stock_code=stock_code,
+            market=market,
+            days=days,
+            horizons=horizons,
+            engine_version=engine_version,
+            statuses=statuses,
+        )
+        action_breakdown = [
+            {
+                "action": bucket.get("value"),
+                **{
+                    key: value
+                    for key, value in bucket.items()
+                    if key not in ("dimension", "value")
+                },
+            }
+            for bucket in stats.get("action_breakdown", [])
+        ]
+        return DecisionSignalStockOutcomeStatsResponse(
+            **{**stats, "action_breakdown": action_breakdown}
+        )
+    except ValueError as exc:
+        raise _bad_request(exc)
+    except Exception as exc:
+        raise _internal_error("Get stock outcome stats failed", exc)
 
 
 @router.post(

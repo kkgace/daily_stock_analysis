@@ -60,12 +60,14 @@ export const DesktopUpdateIndicator: React.FC = () => {
     return null;
   }
 
-  const tooltip = notice?.message
-    || notice?.title
-    || t('layout.desktopUpdateIdleHint', { version: currentVersion || t('settings.desktopLatest') });
   const canOpenRelease = Boolean(state?.releaseUrl) && (status === 'update-available' || status === 'error');
   const canInstall = status === 'update-downloaded';
   const showRecheck = !busy || status === 'error';
+  // 治理规则禁止交互元素原生 title 属性（tests/ui_governance.test.ts）；
+  // 下载进度等状态用 sr-only 文本保留给辅助技术，可见详情走弹层。
+  const statusText = notice?.message
+    || notice?.title
+    || t('layout.desktopUpdateIdleHint', { version: currentVersion || t('settings.desktopLatest') });
 
   return (
     <div className="relative" ref={containerRef}>
@@ -78,7 +80,6 @@ export const DesktopUpdateIndicator: React.FC = () => {
         aria-label={t('layout.desktopUpdateEntry')}
         aria-expanded={open}
         aria-haspopup="dialog"
-        title={tooltip}
         onClick={() => setOpen((current) => !current)}
       >
         {busy ? (
@@ -95,6 +96,7 @@ export const DesktopUpdateIndicator: React.FC = () => {
             aria-label={notice?.title || t('layout.desktopUpdateEntry')}
           />
         ) : null}
+        <span className="sr-only" data-testid="desktop-update-status-text">{statusText}</span>
       </button>
 
       {open ? (

@@ -124,13 +124,16 @@ daily_stock_analysis/
 | `REPORT_INTEGRITY_ENABLED` | 启用报告完整性校验，缺失必填字段时重试或占位补全（默认 `true`） | 可选 |
 | `REPORT_INTEGRITY_RETRY` | 完整性校验重试次数（默认 `1`，`0` 表示仅占位不重试） | 可选 |
 | `REPORT_HISTORY_COMPARE_N` | 历史信号对比条数，`0` 关闭（默认），`>0` 启用 | 可选 |
+| `REPORT_SIGNAL_TRACK_DAYS` | 个股报告「建议回测」卡片：展示该股近 N 天 AI 决策信号的后验命中率，`0` 关闭（默认 30）；无已完成评估的股票自动省略 | 可选 |
+| `DATA_QUALITY_GUARD_ENABLED` | 日线入库质量护栏：入库前检测量纲错误/突变/跨源不一致并记录到 `stock_data_anomalies`，只记录不阻断（默认 `true`）；配套 `python main.py --data-quality` 扫描与 `--data-quality-apply` 修复，详见 [数据源稳定性文档](data-source-stability.md#数据入库质量护栏) | 可选 |
+| `DATA_QUALITY_NOTIFY_ENABLED` | 数据质量异常推送：分析任务收尾时把本轮新发现的日线异常聚合成一条告警，经 `NOTIFICATION_SYSTEM_ERROR_CHANNELS` 路由发送（默认 `true`） | 可选 |
 | `ANALYSIS_DELAY` | 个股分析和大盘分析之间的延迟（秒），避免API限流，如 `10` | 可选 |
 | `SAVE_CONTEXT_SNAPSHOT` | 是否保存分析历史 `context_snapshot`，默认 `true`；设为 `false` 或使用 `--no-context-snapshot` 时不持久化整份上下文快照 | 可选 |
 | `MERGE_EMAIL_NOTIFICATION` | 个股与大盘复盘合并推送（默认 false），减少邮件数量、降低垃圾邮件风险；与 `SINGLE_STOCK_NOTIFY` 互斥（单股模式下合并不生效） | 可选 |
 | `MARKDOWN_TO_IMAGE_CHANNELS` | 将 Markdown 转为图片发送的渠道（用逗号分隔）：telegram,wechat,custom,email,slack；单股推送需同时配置且安装转图工具 | 可选 |
 | `NOTIFICATION_REPORT_CHANNELS` | report 路由渠道（单股推送、聚合日报、大盘复盘、合并推送等）；留空表示所有已配置渠道 | 可选 |
 | `NOTIFICATION_ALERT_CHANNELS` | alert 路由渠道（EventMonitor 告警）；留空表示所有已配置渠道 | 可选 |
-| `NOTIFICATION_SYSTEM_ERROR_CHANNELS` | system_error 预留路由渠道；当前不新增自动系统错误生产者，留空表示所有已配置渠道 | 可选 |
+| `NOTIFICATION_SYSTEM_ERROR_CHANNELS` | system_error 路由渠道（runtime 超时部分完成通知、数据质量护栏异常聚合告警）；留空表示所有已配置渠道 | 可选 |
 | `NOTIFICATION_DEDUP_TTL_SECONDS` | 通知去重 TTL 秒数，`0` 关闭；同一稳定去重 key 在 TTL 内只发送一次 | 可选 |
 | `NOTIFICATION_COOLDOWN_SECONDS` | 通知冷却秒数，`0` 关闭；同一冷却 key 在窗口内限频 | 可选 |
 | `NOTIFICATION_QUIET_HOURS` | 通知静默时段，格式 `HH:MM-HH:MM`，支持跨午夜；留空关闭 | 可选 |
@@ -333,7 +336,7 @@ daily_stock_analysis/
 | `ASTRBOT_TOKEN` | AstrBot Bearer Token（可选） | 可选 |
 | `NOTIFICATION_REPORT_CHANNELS` | report 路由渠道，逗号分隔；允许值：wechat,feishu,telegram,email,pushover,ntfy,gotify,pushplus,serverchan3,custom,discord,slack,astrbot | 可选 |
 | `NOTIFICATION_ALERT_CHANNELS` | alert 路由渠道，逗号分隔；留空保持全渠道 | 可选 |
-| `NOTIFICATION_SYSTEM_ERROR_CHANNELS` | system_error 预留路由渠道，逗号分隔；留空保持全渠道 | 可选 |
+| `NOTIFICATION_SYSTEM_ERROR_CHANNELS` | system_error 路由渠道，逗号分隔；留空保持全渠道 | 可选 |
 | `NOTIFICATION_DEDUP_TTL_SECONDS` | 通知去重 TTL 秒数，`0` 关闭 | 可选 |
 | `NOTIFICATION_COOLDOWN_SECONDS` | 通知冷却秒数，`0` 关闭 | 可选 |
 | `NOTIFICATION_QUIET_HOURS` | 静默时段，格式 `HH:MM-HH:MM`，支持跨午夜 | 可选 |

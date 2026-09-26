@@ -74,10 +74,21 @@ Web 展示必须把这些 wire value 映射为当前 UI 语言的用户可读标
 - `GET /api/v1/decision-signals/latest/{stock_code}`：查询股票最新 active 信号。
 - `POST /api/v1/decision-signals/outcomes/run`：显式触发后验评估。
 - `GET /api/v1/decision-signals/outcomes`、`GET /api/v1/decision-signals/outcomes/stats`、`GET /api/v1/decision-signals/{signal_id}/outcomes`：查询后验结果与统计。
+- `GET /api/v1/decision-signals/outcomes/stats/{stock_code}`：查询单只股票近 N 天（`days`，默认 30）的建议后验统计，返回 hit/miss/neutral、`hit_rate_pct`（`hit/(hit+miss)`，neutral 不进分母）、平均区间涨跌与按 action 分桶。只读接口，不触发 outcome 重算；统计窗口按信号创建时间。
 - `GET/PUT /api/v1/decision-signals/{signal_id}/feedback`：查询或写入 useful / not useful 反馈。
 - `POST /api/v1/decision-signals/reassess`：基于来源历史报告快照重新计算不同决策风格下的信号；`persist=false` 只预览，`persist=true` 由服务端重算并保存通过 guardrail 的结果。
 
 这些接口继承现有 `/api/v1/*` 管理员鉴权；`ADMIN_AUTH_ENABLED=true` 时需要有效管理员会话 Cookie。
+
+### 报告「建议回测」卡片
+
+个股报告（通知、分享图与 Web 报告视图共用三条渲染路径）新增每只股票的「建议回测」卡片：
+
+- 数据来自 `DecisionSignalOutcomeService.get_stock_stats(stock_code, days=REPORT_SIGNAL_TRACK_DAYS)`；通知与单股推送渲染前对该股懒跑一次幂等的 `run_outcomes`（已完成的 outcome 跳过，只评估统计窗口内创建的信号），使每日报告不需要依赖手动触发评估。
+- 卡片展示近 N 天（默认 30，`REPORT_SIGNAL_TRACK_DAYS=0` 关闭）的命中/未中/中性、总体命中率、区间平均涨跌与分动作统计；中英文韩三语文案由 `format_signal_track_record` 统一产出，四条渲染路径（通知拼段、单股推送、分享图海报、Web 报告视图）共用同一 formatter，避免渠道间内容漂移。单股分享图海报会整段渲染卡片小节（含标题）。
+- Web 历史报告重建走只读语义（`refresh=False`）：GET 请求不触发 outcome 评估写库；生成时已评估过的信号其卡片正常展示，从未评估过的旧报告不出卡（历史记录快照语义，同一记录在不同时间查看内容一致）。
+- 统计按信号去重：同一信号在多评估周期（horizon）下只计一次，优先取信号声明周期的评估行——「N 条」是信号数而非 outcome 行数（全局 stats 接口保持按 outcome 行口径，两者语义独立）；`days` 参数传 0/负数会被服务层以 `ValueError` 显式拒绝（关闭卡片由 `REPORT_SIGNAL_TRACK_DAYS=0` 表达）。
+- 无已完成评估的股票自动省略整卡（section 级「有内容才渲染」惯例）；懒刷新失败只降级为省略，不影响报告生成。
 
 ## 决策风格历史表现
 

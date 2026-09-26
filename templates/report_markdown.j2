@@ -233,6 +233,13 @@
 {% endif %}
 {% endif %}
 
+{% if signal_stats_by_code is defined and format_signal_track_record is defined %}
+{% set track_stats = signal_stats_by_code.get(result.code) %}
+{% if track_stats %}
+{{ format_signal_track_record(track_stats, report_language) }}
+{% endif %}
+{% endif %}
+
 {% set hist = history_by_code.get(result.code, []) %}
 {% if hist %}
 ### 📜 {{ labels.history_compare_heading }}

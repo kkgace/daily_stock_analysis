@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import json
 import logging
 import math
@@ -31,6 +31,7 @@ from src.storage import (
     DecisionSignalFeedbackRecord,
     DecisionSignalOutcomeRecord,
     DecisionSignalRecord,
+    utc_naive_now,
 )
 from src.utils.sanitize import sanitize_decision_signal_text
 
@@ -105,7 +106,14 @@ class DecisionSignalOutcomeService:
         source_type: Optional[str] = None,
         status: Optional[str] = None,
         limit: int = 100,
+        created_from: Optional[datetime] = None,
     ) -> Dict[str, Any]:
+        """评估决策信号的后验表现（幂等 upsert）。
+
+        Args:
+            created_from: 仅评估该时刻之后创建的信号（懒刷新场景传统计
+                窗口起点，避免长信号史全量扫描）；None 表示不限制。
+        """
         signal_id_norm = self._optional_positive_int(signal_id, "signal_id")
         market_norm = DecisionSignalService._normalize_optional_market(market)
         action_norm = DecisionSignalService._normalize_optional_action(action)
@@ -128,6 +136,7 @@ class DecisionSignalOutcomeService:
                 statuses=statuses,
                 requested_horizons=horizons_norm,
                 limit=safe_limit,
+                created_from=created_from,
             )
         else:
             signals = self.repo.list_candidate_signals(
@@ -186,6 +195,7 @@ class DecisionSignalOutcomeService:
         statuses: Optional[List[str]],
         requested_horizons: Optional[List[str]],
         limit: int,
+        created_from: Optional[datetime] = None,
     ) -> List[DecisionSignalRecord]:
         selected: List[DecisionSignalRecord] = []
         selected_ids = set()
@@ -202,6 +212,7 @@ class DecisionSignalOutcomeService:
                 statuses=statuses,
                 offset=offset,
                 limit=BATCH_CANDIDATE_SCAN_PAGE_SIZE,
+                created_from=created_from,
             )
             if not page:
                 break
@@ -361,6 +372,113 @@ class DecisionSignalOutcomeService:
             "breakdowns": breakdowns,
             "profile_calibration": self._profile_calibration(stats_rows),
         }
+
+    def get_stock_stats(
+        self,
+        *,
+        stock_code: str,
+        market: Optional[str] = None,
+        days: int = 30,
+        horizons: Optional[List[str]] = None,
+        engine_version: Optional[str] = None,
+        statuses: Optional[List[str]] = None,
+        refresh: bool = False,
+    ) -> Dict[str, Any]:
+        """单只股票近 N 天的建议后验统计（报告「命中率卡片」与 API 共用）。
+
+        Args:
+            stock_code: 股票代码（HK 别名归一复用 DecisionSignalService 口径）。
+            market: 可选市场限定（cn/hk/us）。
+            days: 统计窗口（按信号创建时间，默认 30 天）；<=0 视为非法
+                （"关闭卡片"由调用方在进入本方法前判断，静默钳成 1 天
+                会让未来调用方拿到错误的近 1 天统计）。
+            refresh: 先对这只股票懒跑一次 run_outcomes（幂等：已完成的
+                outcome 会跳过，只补缺/重试可重试项）。报告渲染路径传
+                True，纯 API 读取传 False。懒评估候选同样只扫统计窗口
+                内创建的信号，避免长信号史全量扫描。
+
+        统计按信号去重：同一信号的多周期评估（1d/3d/5d/10d）只计一次，
+        优先取信号声明周期的评估行（"N 条"是信号数而非 outcome 行数）。
+        全局 stats（get_stats）保持按 outcome 行口径，两者语义独立。
+        """
+
+        normalized_input = str(stock_code or "").strip()
+        if not normalized_input:
+            raise ValueError("stock_code is required")
+        window_days = int(days)
+        if window_days <= 0:
+            raise ValueError(f"days must be a positive integer, got: {days!r}")
+        engine_version_norm = str(engine_version or DECISION_SIGNAL_OUTCOME_ENGINE_VERSION).strip()
+        horizons_norm = self._normalize_horizons(horizons)
+        market_norm = DecisionSignalService._normalize_optional_market(market)
+        statuses_norm = (
+            [self._normalize_enum(item, SIGNAL_STATUSES, "status") for item in statuses]
+            if statuses
+            else list(DEFAULT_STATS_STATUSES)
+        )
+        stock_codes_norm = DecisionSignalService._stock_filter_codes(
+            normalized_input, market=market_norm
+        )
+
+        if refresh:
+            try:
+                self.run_outcomes(
+                    stock_code=normalized_input,
+                    market=market_norm,
+                    limit=200,
+                    created_from=utc_naive_now() - timedelta(days=window_days),
+                )
+            except Exception as exc:  # 懒刷新失败不阻断统计读取
+                logger.warning(
+                    "get_stock_stats: lazy outcome refresh failed for %s: %s",
+                    normalized_input, exc,
+                )
+
+        created_from = utc_naive_now() - timedelta(days=window_days)
+        stats_rows = self.repo.list_stats_rows(
+            engine_version=engine_version_norm,
+            horizons=horizons_norm,
+            statuses=statuses_norm,
+            stock_codes=stock_codes_norm,
+            created_from=created_from,
+        )
+        # 按信号去重：同一信号经多评估周期（1d/3d/5d/10d）评估会产生多行
+        # outcome 记录，"N 条"必须是信号数而非行数，否则 2 条买入信号会
+        # 显示成"买入 8 条"。优先取信号声明周期的评估行，无匹配取首行。
+        # 全局 stats（get_stats）保持按行口径不变（文档已冻结该语义）。
+        stats_rows = self._dedupe_stats_rows_by_signal(stats_rows)
+        rows = [stats_row.outcome for stats_row in stats_rows]
+        return {
+            **self._aggregate(rows),
+            "stock_code": normalized_input,
+            "window_days": window_days,
+            "engine_version": engine_version_norm,
+            "horizons": horizons_norm,
+            "statuses": statuses_norm,
+            "action_breakdown": self._breakdown(rows, "action"),
+        }
+
+    def _dedupe_stats_rows_by_signal(self, stats_rows: List[OutcomeStatsRow]) -> List[OutcomeStatsRow]:
+        """同一 signal_id 只保留一条评估行（优先信号声明的 horizon）。"""
+
+        best: Dict[int, OutcomeStatsRow] = {}
+        for stats_row in stats_rows:
+            signal_id = int(stats_row.outcome.signal_id)
+            current = best.get(signal_id)
+            if current is None:
+                best[signal_id] = stats_row
+                continue
+            current_declared = (
+                current.signal_horizon is not None
+                and current.outcome.horizon == current.signal_horizon
+            )
+            candidate_declared = (
+                stats_row.signal_horizon is not None
+                and stats_row.outcome.horizon == stats_row.signal_horizon
+            )
+            if candidate_declared and not current_declared:
+                best[signal_id] = stats_row
+        return [best[signal_id] for signal_id in sorted(best)]
 
     def get_feedback(self, signal_id: int) -> Dict[str, Any]:
         signal = self._require_existing_signal(signal_id)

@@ -446,6 +446,33 @@ def parse_arguments() -> argparse.Namespace:
         help='强制回测（即使已有回测结果也重新计算）'
     )
 
+    # === Data quality（数据质量扫描与修复） ===
+    parser.add_argument(
+        '--data-quality',
+        action='store_true',
+        help='扫描 stock_daily 存量数据的质量问题并输出报告（只读，不修改数据）'
+    )
+
+    parser.add_argument(
+        '--data-quality-apply',
+        action='store_true',
+        help='与 --data-quality 连用：应用高置信量纲修复（volume=amount/close），其余异常仅报告'
+    )
+
+    parser.add_argument(
+        '--data-quality-code',
+        type=str,
+        default=None,
+        help='限定扫描的股票代码，逗号分隔（默认扫描全部）'
+    )
+
+    parser.add_argument(
+        '--data-quality-days',
+        type=int,
+        default=None,
+        help='扫描最近 N 天的数据（默认 90）'
+    )
+
     return parser.parse_args()
 
 
@@ -769,6 +796,22 @@ def _run_auto_backtest(config: Config) -> None:
         )
     except Exception as exc:
         logger.warning(f"自动回测失败（已忽略）: {exc}")
+
+
+def _join_data_quality_notify(pipeline: Any, timeout_seconds: float = 10.0) -> None:
+    """CLI/调度子进程退出前有界等待数据质量告警线程。
+
+    守护线程被进程退出直接杀死会丢掉本轮最后一条系统告警；
+    有界等待超时后放弃——通知始终 best-effort，绝不无限阻塞退出。
+    pipeline 为 None（分析未走到初始化）或 join 抛错时静默放过。
+    """
+
+    if pipeline is None:
+        return
+    try:
+        pipeline.join_data_quality_notify(timeout_seconds=timeout_seconds)
+    except Exception:  # noqa: BLE001 - join 失败不阻断分析退出
+        pass
 
 
 def run_full_analysis(
@@ -1209,6 +1252,9 @@ def run_full_analysis(
         if raise_errors:
             raise
         return False
+    finally:
+        # 短命进程（CLI/调度子进程）退出前有界等待数据质量告警线程
+        _join_data_quality_notify(locals().get("pipeline"))
 
 
 def run_scheduled_analysis(
@@ -1715,6 +1761,55 @@ def main() -> int:
                 f"回测完成: processed={stats.get('processed')} saved={stats.get('saved')} "
                 f"completed={stats.get('completed')} insufficient={stats.get('insufficient')} errors={stats.get('errors')}"
             )
+            return 0
+
+        # 模式0b: 数据质量扫描与修复（独立只读工具，不进入分析流程）
+        # --data-quality-apply 依赖扫描产出的修复清单，单独使用时直接报错，
+        # 避免被静默忽略后 fall-through 到默认完整分析流程（LLM 调用 + 推送）
+        if getattr(args, 'data_quality_apply', False) and not getattr(args, 'data_quality', False):
+            logger.error(
+                "--data-quality-apply 必须与 --data-quality 一起使用（先扫描后修复）；"
+                "如只想运行分析请去掉 --data-quality-apply"
+            )
+            return 2
+
+        if getattr(args, 'data_quality', False):
+            logger.info("模式: 数据质量扫描")
+            from src.services.data_repair_service import (
+                DEFAULT_SCAN_DAYS,
+                apply_volume_fixes,
+                format_scan_report,
+                scan_stock_daily_quality,
+            )
+
+            codes = None
+            raw_codes = getattr(args, 'data_quality_code', None)
+            if raw_codes:
+                codes = [item.strip() for item in str(raw_codes).split(',') if item.strip()]
+            raw_days = getattr(args, 'data_quality_days', None)
+            days = int(raw_days) if raw_days is not None else DEFAULT_SCAN_DAYS
+            if days <= 0:
+                logger.error(f"--data-quality-days 必须为正整数（当前: {raw_days}）")
+                return 2
+
+            try:
+                report = scan_stock_daily_quality(codes=codes, days=days)
+            except ValueError as exc:
+                logger.error(f"扫描范围校验失败: {exc}")
+                return 2
+            print(format_scan_report(report))
+
+            if getattr(args, 'data_quality_apply', False):
+                try:
+                    result = apply_volume_fixes(report["fixable"])
+                except Exception as exc:  # noqa: BLE001 - CLI 兜底：修复失败不静默
+                    logger.error(f"量纲修复执行失败: {exc}", exc_info=True)
+                    return 2
+                logger.info(
+                    f"量纲修复完成: applied={result['applied']} "
+                    f"re_marked={result.get('re_marked', 0)} "
+                    f"skipped={result['skipped']} total={result['total']}"
+                )
             return 0
 
         # 模式1: 仅大盘复盘

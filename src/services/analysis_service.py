@@ -152,7 +152,7 @@ class AnalysisService:
             rt = ReportType.from_str(report_type)
             
             # 执行分析
-            result = pipeline.process_single_stock(
+            result = pipeline.process_single_stock_with_quality_notify(
                 code=stock_code,
                 skip_analysis=False,
                 single_stock_notify=send_notification,

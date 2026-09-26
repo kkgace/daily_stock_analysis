@@ -233,6 +233,41 @@ class DecisionSignalOutcomeStatsResponse(BaseModel):
     profile_calibration: DecisionSignalProfileCalibration
 
 
+class DecisionSignalStockOutcomeStatsActionBucket(BaseModel):
+    """按 action（buy/hold/sell 等 8 态）分桶的单股后验统计。"""
+
+    action: str
+    total: int
+    completed: int
+    unable: int
+    hit: int
+    miss: int
+    neutral: int
+    hit_rate_pct: Optional[float] = None
+    avg_stock_return_pct: Optional[float] = None
+    unable_reasons: Dict[str, int] = Field(default_factory=dict)
+
+
+class DecisionSignalStockOutcomeStatsResponse(BaseModel):
+    """单只股票近 N 天的建议后验统计（报告命中率卡片同源数据）。"""
+
+    stock_code: str
+    window_days: int
+    engine_version: str
+    horizons: Optional[List[str]] = None
+    statuses: List[str] = Field(default_factory=list)
+    total: int
+    completed: int
+    unable: int
+    hit: int
+    miss: int
+    neutral: int
+    hit_rate_pct: Optional[float] = None
+    avg_stock_return_pct: Optional[float] = None
+    unable_reasons: Dict[str, int] = Field(default_factory=dict)
+    action_breakdown: List[DecisionSignalStockOutcomeStatsActionBucket] = Field(default_factory=list)
+
+
 class DecisionSignalFeedbackRequest(BaseModel):
     feedback_value: DecisionSignalFeedbackValue
     reason_code: Optional[str] = Field(None, json_schema_extra={"maxLength": 64})

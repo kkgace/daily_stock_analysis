@@ -47,6 +47,7 @@ from sqlalchemy import (
     inspect,
     MetaData,
     Table,
+    case,
 )
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import (
@@ -174,6 +175,55 @@ class StockDaily(Base):
             'volume_ratio': self.volume_ratio,
             'data_source': self.data_source,
             'canonical_id': self.canonical_id,
+        }
+
+
+class StockDataAnomalyRecord(Base):
+    """数据入库质量护栏的异常记录（data_quality_guard）。
+
+    由 ``DatabaseManager.save_daily_data`` 在写入前运行检测规则产生；
+    只记录、不阻断入库。同一 (code, date, kind, data_source) 去重
+    upsert，重复保存同一批数据不会堆积重复异常。
+    ``status`` 生命周期由数据修复 CLI 维护：open -> repaired/dismissed。
+    """
+
+    __tablename__ = 'stock_data_anomalies'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(16), nullable=False, index=True)
+    date = Column(Date, nullable=False, index=True)
+    kind = Column(String(32), nullable=False, index=True)
+    severity = Column(String(8), nullable=False, default='warning', index=True)
+    data_source = Column(String(50), nullable=False)
+    existing_data_source = Column(String(50))
+    details_json = Column(Text)
+    suggested_fix_json = Column(Text)
+    status = Column(String(16), nullable=False, default='open', index=True)
+    created_at = Column(DateTime, default=datetime.now, index=True)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    __table_args__ = (
+        UniqueConstraint(
+            'code', 'date', 'kind', 'data_source',
+            name='uix_stock_data_anomaly_key',
+        ),
+        Index('ix_stock_data_anomaly_open', 'status', 'code', 'date'),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            'id': self.id,
+            'code': self.code,
+            'date': self.date,
+            'kind': self.kind,
+            'severity': self.severity,
+            'data_source': self.data_source,
+            'existing_data_source': self.existing_data_source,
+            'details_json': self.details_json,
+            'suggested_fix_json': self.suggested_fix_json,
+            'status': self.status,
+            'created_at': self.created_at,
+            'updated_at': self.updated_at,
         }
 
 
@@ -3375,6 +3425,16 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
         records = list(records_by_date.values())
         batch_dates = list(records_by_date.keys())
 
+        # 数据入库质量护栏（Issue #2350 一类量纲错误）：在覆盖写入前
+        # 运行检测（此时还能读到旧来源的同日行），异常只记录不阻断。
+        guard_anomalies: List[Dict[str, Any]] = []
+        if self._data_quality_guard_enabled():
+            guard_anomalies = self._detect_daily_anomalies(
+                code=code,
+                records=records,
+                batch_dates=batch_dates,
+            )
+
         def _write(session: Session) -> int:
             if self._is_sqlite_engine:
                 # SQLite has a per-statement bind-parameter limit (commonly 999).
@@ -3474,12 +3534,250 @@ class DatabaseManager(metaclass=_DatabaseManagerMeta):
                 f"save_daily_data[{code}]",
                 _write,
             )
+            if guard_anomalies:
+                # 异常记录独立于行情写入事务：记录失败只告警，
+                # 绝不影响已成功的行情入库（稳定性优先）。
+                try:
+                    self._record_daily_anomalies(guard_anomalies)
+                except Exception as anomaly_exc:
+                    logger.warning(
+                        "save_daily_data[%s]: 数据质量异常记录写入失败（不影响行情入库）: %s",
+                        code, anomaly_exc,
+                    )
             logger.info(f"保存 {code} 数据成功，新增 {saved_count} 条")
             return saved_count
         except Exception as e:
             logger.error(f"保存 {code} 数据失败: {e}")
             raise
-    
+
+    # ------------------------------------------------------------------
+    # 数据入库质量护栏（data_quality_guard）
+    # ------------------------------------------------------------------
+
+    def _data_quality_guard_enabled(self) -> bool:
+        """读取 DATA_QUALITY_GUARD_ENABLED（默认 true）。
+
+        配置读取失败时 fail-open（护栏本身只记录不阻断，
+        不存在"配置异常导致行为变化"的风险面）。
+        """
+        try:
+            config = get_config()
+            return bool(getattr(config, "data_quality_guard_enabled", True))
+        except Exception:
+            return True
+
+    def _detect_daily_anomalies(
+        self,
+        *,
+        code: str,
+        records: List[Dict[str, Any]],
+        batch_dates: List[date],
+    ) -> List[Dict[str, Any]]:
+        """对一批日线记录运行质量检测，返回异常 payload 列表。
+
+        检测在覆盖写入前执行：同票同日的已入库行（可能来自其它
+        数据源）用于跨源一致性检查；更早日期的行用于突变检测。
+        任何检测失败都返回空列表，绝不阻断入库。
+        """
+        from src.services.data_quality_guard import (
+            HISTORY_LOOKBACK,
+            detect_daily_row_anomalies,
+        )
+
+        try:
+            with self.get_session() as session:
+                # 与 _write 内既有查询一致：IN 列表按 500 分块，
+                # 避免 SQLite 绑定参数上限（大批量回填场景可超 999 日期）。
+                existing_rows: Dict[date, Dict[str, Any]] = {}
+                _CHUNK = 500
+                for j in range(0, len(batch_dates), _CHUNK):
+                    chunk_dates = batch_dates[j : j + _CHUNK]
+                    if not chunk_dates:
+                        continue
+                    for row in session.execute(
+                        select(StockDaily).where(
+                            and_(
+                                StockDaily.code == code,
+                                StockDaily.date.in_(chunk_dates),
+                            )
+                        )
+                    ).scalars().all():
+                        existing_rows[row.date] = {
+                            "code": row.code,
+                            "date": row.date,
+                            "volume": row.volume,
+                            "close": row.close,
+                            "amount": row.amount,
+                            "data_source": row.data_source,
+                        }
+                min_date = min(batch_dates)
+                history_base = [
+                    {
+                        "code": row.code,
+                        "date": row.date,
+                        "volume": row.volume,
+                        "close": row.close,
+                        "amount": row.amount,
+                        "data_source": row.data_source,
+                    }
+                    for row in session.execute(
+                        select(StockDaily)
+                        .where(and_(StockDaily.code == code, StockDaily.date < min_date))
+                        .order_by(desc(StockDaily.date))
+                        .limit(HISTORY_LOOKBACK)
+                    ).scalars().all()
+                ]
+        except Exception as exc:
+            logger.warning(
+                "save_daily_data[%s]: 数据质量护栏读取历史数据失败，跳过本轮检测: %s",
+                code, exc,
+            )
+            return []
+
+        anomalies: List[Dict[str, Any]] = []
+        prior_batch_rows: List[Dict[str, Any]] = []
+        for record in sorted(records, key=lambda item: item["date"]):
+            # 突变检测的历史序列按日期降序：同批更早的行在前，
+            # 库内更早的行在后（history_base 本身降序）。
+            history_rows = list(reversed(prior_batch_rows)) + history_base
+            found = detect_daily_row_anomalies(
+                record,
+                existing_row=existing_rows.get(record["date"]),
+                history_rows=history_rows,
+            )
+            anomalies.extend(found)
+            prior_batch_rows.append(
+                {
+                    "code": record["code"],
+                    "date": record["date"],
+                    "volume": record["volume"],
+                    "close": record["close"],
+                    "amount": record["amount"],
+                    "data_source": record["data_source"],
+                }
+            )
+        return anomalies
+
+    def _record_daily_anomalies(self, anomalies: List[Dict[str, Any]]) -> int:
+        """把检测出的异常写入 stock_data_anomalies（幂等 upsert）。"""
+
+        if not anomalies:
+            return 0
+        saved = 0
+
+        def _write(session: Session) -> int:
+            count = 0
+            for item in anomalies:
+                self._upsert_stock_data_anomaly(session, item)
+                count += 1
+            return count
+
+        try:
+            saved = self._run_write_transaction("record_daily_anomalies", _write)
+        except IntegrityError:
+            # 并发下另一线程已写入相同异常键：整批已回滚，逐条重写，
+            # 跳过被并发抢占的重复键，避免一条冲突丢弃整批台账记录。
+            logger.debug("record_daily_anomalies: retrying per-item after IntegrityError")
+            for item in anomalies:
+                try:
+
+                    def _write_one(session: Session, _item: Dict[str, Any] = item) -> int:
+                        self._upsert_stock_data_anomaly(session, _item)
+                        return 1
+
+                    saved += self._run_write_transaction(
+                        "record_daily_anomaly_one", _write_one
+                    )
+                except IntegrityError:
+                    logger.debug("record_daily_anomaly_one: duplicate skipped")
+                    continue
+        if saved:
+            logger.warning(
+                "数据质量护栏：检测到 %d 条日线异常（详见 stock_data_anomalies 表，"
+                "可用 python main.py --data-quality 查看）",
+                saved,
+            )
+        return saved
+
+    def record_data_anomaly(self, anomaly: Dict[str, Any]) -> int:
+        """写入/更新一条护栏异常记录（公共入口）。
+
+        供修复 CLI 为"护栏启用前的存量问题"补台账；payload 结构与
+        data_quality_guard 检测输出一致（details_json 为 dict）。
+        """
+
+        return self._record_daily_anomalies([anomaly])
+
+    def _upsert_stock_data_anomaly(self, session: Session, item: Dict[str, Any]) -> None:
+        """写入/更新一条异常记录（同 code+date+kind+source 幂等）。
+
+        冲突更新不覆盖 ``created_at``（轮级"新异常"判定依赖它）；``status``
+        仅在已是 ``repaired`` 时回开为 ``open``（修复后被同源再次写入坏数据
+        说明问题复发，面板与通知需要重新看到它），``dismissed`` 尊重人工
+        判断保持不变。
+        """
+        now = datetime.now()
+        values = {
+            "code": item["code"],
+            "date": item["date"],
+            "kind": item["kind"],
+            "severity": item["severity"],
+            "data_source": item["data_source"] or "Unknown",
+            "existing_data_source": item.get("existing_data_source"),
+            "details_json": (
+                json.dumps(item.get("details_json"), ensure_ascii=False, default=str)
+                if item.get("details_json")
+                else None
+            ),
+            "suggested_fix_json": (
+                json.dumps(item.get("suggested_fix"), ensure_ascii=False, default=str)
+                if item.get("suggested_fix")
+                else None
+            ),
+            "status": "open",
+            "updated_at": now,
+        }
+        if self._is_sqlite_engine:
+            stmt = sqlite_insert(StockDataAnomalyRecord).values(**values)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["code", "date", "kind", "data_source"],
+                set_={
+                    "severity": stmt.excluded.severity,
+                    "existing_data_source": stmt.excluded.existing_data_source,
+                    "details_json": stmt.excluded.details_json,
+                    "suggested_fix_json": stmt.excluded.suggested_fix_json,
+                    "updated_at": stmt.excluded.updated_at,
+                    # repaired → open（问题复发）；dismissed/open 保持原状态
+                    "status": case(
+                        (StockDataAnomalyRecord.status == "repaired", "open"),
+                        else_=StockDataAnomalyRecord.status,
+                    ),
+                },
+            )
+            session.execute(stmt)
+            return
+        existing = session.execute(
+            select(StockDataAnomalyRecord).where(
+                and_(
+                    StockDataAnomalyRecord.code == values["code"],
+                    StockDataAnomalyRecord.date == values["date"],
+                    StockDataAnomalyRecord.kind == values["kind"],
+                    StockDataAnomalyRecord.data_source == values["data_source"],
+                )
+            ).limit(1)
+        ).scalar_one_or_none()
+        if existing is None:
+            session.add(StockDataAnomalyRecord(**values))
+            return
+        existing.severity = values["severity"]
+        existing.existing_data_source = values["existing_data_source"]
+        existing.details_json = values["details_json"]
+        existing.suggested_fix_json = values["suggested_fix_json"]
+        existing.updated_at = now
+        # repaired → open（问题复发）；dismissed/open 保持原状态
+        if existing.status == "repaired":
+            existing.status = "open"
+
     def get_analysis_context(
         self, 
         code: str,

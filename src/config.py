@@ -985,6 +985,12 @@ class Config:
     searxng_public_instances_enabled: bool = False  # Opt in to public discovery when base URLs are absent
     searxng_timeout_seconds: int = 10  # 自建 SearXNG 单次搜索超时（秒）
 
+    # === 数据入库质量护栏（data_quality_guard） ===
+    # 只记录异常不阻断入库；关闭后 save_daily_data 恢复原行为（零额外查询）
+    data_quality_guard_enabled: bool = True
+    # 护栏异常经 NOTIFICATION_SYSTEM_ERROR_CHANNELS 推送聚合告警（任务收尾时）
+    data_quality_notify_enabled: bool = True
+
     # === Social Sentiment (US stocks only, api.adanos.org) ===
     social_sentiment_api_key: Optional[str] = None
     social_sentiment_api_url: str = "https://api.adanos.org"
@@ -1136,6 +1142,9 @@ class Config:
     report_integrity_enabled: bool = True  # Content integrity validation after LLM output
     report_integrity_retry: int = 1  # Retry count when mandatory fields missing (0 = placeholder only)
     report_history_compare_n: int = 0  # History comparison count (0 = disabled)
+    # 建议回测卡片窗口（天）：报告内展示该股近 N 天 DecisionSignal 后验
+    # 命中率；0 = 关闭该卡片（无数据时也会自动省略）
+    report_signal_track_days: int = 30
 
     # PushPlus 推送配置
     pushplus_token: Optional[str] = None  # PushPlus Token
@@ -1884,6 +1893,12 @@ class Config:
             searxng_timeout_seconds=parse_env_int(
                 os.getenv('SEARXNG_TIMEOUT_SECONDS'), 10, field_name='SEARXNG_TIMEOUT_SECONDS', minimum=1
             ),
+            data_quality_guard_enabled=parse_env_bool(
+                os.getenv('DATA_QUALITY_GUARD_ENABLED'), default=True
+            ),
+            data_quality_notify_enabled=parse_env_bool(
+                os.getenv('DATA_QUALITY_NOTIFY_ENABLED'), default=True
+            ),
             social_sentiment_api_key=os.getenv('SOCIAL_SENTIMENT_API_KEY') or None,
             social_sentiment_api_url=os.getenv('SOCIAL_SENTIMENT_API_URL', 'https://api.adanos.org').rstrip('/'),
             news_max_age_days=parse_env_int(os.getenv('NEWS_MAX_AGE_DAYS'), 3, field_name='NEWS_MAX_AGE_DAYS', minimum=1),
@@ -2108,6 +2123,7 @@ class Config:
             report_integrity_enabled=os.getenv('REPORT_INTEGRITY_ENABLED', 'true').lower() == 'true',
             report_integrity_retry=parse_env_int(os.getenv('REPORT_INTEGRITY_RETRY'), 1, field_name='REPORT_INTEGRITY_RETRY', minimum=0),
             report_history_compare_n=parse_env_int(os.getenv('REPORT_HISTORY_COMPARE_N'), 0, field_name='REPORT_HISTORY_COMPARE_N', minimum=0),
+            report_signal_track_days=parse_env_int(os.getenv('REPORT_SIGNAL_TRACK_DAYS'), 30, field_name='REPORT_SIGNAL_TRACK_DAYS', minimum=0),
             analysis_delay=parse_env_float(os.getenv('ANALYSIS_DELAY'), 0.0, field_name='ANALYSIS_DELAY', minimum=0.0),
             merge_email_notification=os.getenv('MERGE_EMAIL_NOTIFICATION', 'false').lower() == 'true',
             feishu_max_bytes=parse_env_int(os.getenv('FEISHU_MAX_BYTES'), 20000, field_name='FEISHU_MAX_BYTES', minimum=1),

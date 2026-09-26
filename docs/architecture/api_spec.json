@@ -2100,6 +2100,166 @@
         }
       }
     },
+    "/api/v1/decision-signals/outcomes/stats/{stock_code}": {
+      "get": {
+        "tags": [
+          "DecisionSignals"
+        ],
+        "summary": "查询单只股票的建议后验统计",
+        "description": "统计该股票近 N 天（默认 30）DecisionSignal 的后验表现：hit/miss/neutral、总体命中率（hit/(hit+miss)，不含 neutral）、平均区间收益与按 action 分桶。每条信号只计一次：多周期评估时取信号声明周期的评估行（'N 条'是信号数而非 outcome 行数）。只读接口：不触发 outcome 重算，历史 outcome 仅在调用 POST /outcomes/run 后存在。",
+        "operationId": "getDecisionSignalStockOutcomeStats",
+        "security": [
+          {
+            "AdminSessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "stock_code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Stock Code"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 365,
+              "minimum": 1,
+              "default": 30,
+              "title": "Days"
+            }
+          },
+          {
+            "name": "market",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Market"
+            }
+          },
+          {
+            "name": "horizons",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Horizons"
+            }
+          },
+          {
+            "name": "engine_version",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Engine Version"
+            }
+          },
+          {
+            "name": "statuses",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Statuses"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionSignalStockOutcomeStatsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登录或管理员会话无效（ADMIN_AUTH_ENABLED=true 时）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "查询参数非法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "路径或查询参数校验失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "统计失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/decision-signals/{signal_id}/outcomes": {
       "get": {
         "tags": [
@@ -2730,6 +2890,119 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/data/anomalies": {
+      "get": {
+        "tags": [
+          "Data"
+        ],
+        "summary": "List daily-data quality anomalies",
+        "description": "Read-only view of anomalies recorded by the ingest quality guard (stock_data_anomalies), plus a status summary across all records. The guard records anomalies without blocking ingestion.",
+        "operationId": "list_data_quality_anomalies_api_v1_data_anomalies_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by status: open / repaired / dismissed. Pass 'all' (case-insensitive) to disable the filter.",
+              "default": "open",
+              "title": "Status"
+            },
+            "description": "Filter by status: open / repaired / dismissed. Pass 'all' (case-insensitive) to disable the filter."
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by stock code.",
+              "title": "Code"
+            },
+            "description": "Filter by stock code."
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by anomaly kind, e.g. unit_scale_mismatch.",
+              "title": "Kind"
+            },
+            "description": "Filter by anomaly kind, e.g. unit_scale_mismatch."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "description": "Maximum number of rows to return.",
+              "default": 100,
+              "title": "Limit"
+            },
+            "description": "Maximum number of rows to return."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataQualityAnomaliesResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Internal Server Error"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -6832,6 +7105,190 @@
         ],
         "title": "DecisionSignalOutcomeStatsResponse"
       },
+      "DecisionSignalStockOutcomeStatsResponse": {
+        "properties": {
+          "stock_code": {
+            "type": "string",
+            "title": "Stock Code"
+          },
+          "window_days": {
+            "type": "integer",
+            "title": "Window Days"
+          },
+          "engine_version": {
+            "type": "string",
+            "title": "Engine Version"
+          },
+          "horizons": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Horizons"
+          },
+          "statuses": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Statuses"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "completed": {
+            "type": "integer",
+            "title": "Completed"
+          },
+          "unable": {
+            "type": "integer",
+            "title": "Unable"
+          },
+          "hit": {
+            "type": "integer",
+            "title": "Hit"
+          },
+          "miss": {
+            "type": "integer",
+            "title": "Miss"
+          },
+          "neutral": {
+            "type": "integer",
+            "title": "Neutral"
+          },
+          "hit_rate_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hit Rate Pct"
+          },
+          "avg_stock_return_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Stock Return Pct"
+          },
+          "unable_reasons": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Unable Reasons"
+          },
+          "action_breakdown": {
+            "items": {
+              "$ref": "#/components/schemas/DecisionSignalStockOutcomeStatsActionBucket"
+            },
+            "type": "array",
+            "title": "Action Breakdown"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stock_code",
+          "window_days",
+          "engine_version",
+          "total",
+          "completed",
+          "unable",
+          "hit",
+          "miss",
+          "neutral"
+        ],
+        "title": "DecisionSignalStockOutcomeStatsResponse",
+        "description": "单只股票近 N 天的建议后验统计（报告命中率卡片同源数据）。"
+      },
+      "DecisionSignalStockOutcomeStatsActionBucket": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "completed": {
+            "type": "integer",
+            "title": "Completed"
+          },
+          "unable": {
+            "type": "integer",
+            "title": "Unable"
+          },
+          "hit": {
+            "type": "integer",
+            "title": "Hit"
+          },
+          "miss": {
+            "type": "integer",
+            "title": "Miss"
+          },
+          "neutral": {
+            "type": "integer",
+            "title": "Neutral"
+          },
+          "hit_rate_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hit Rate Pct"
+          },
+          "avg_stock_return_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avg Stock Return Pct"
+          },
+          "unable_reasons": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Unable Reasons"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action",
+          "total",
+          "completed",
+          "unable",
+          "hit",
+          "miss",
+          "neutral"
+        ],
+        "title": "DecisionSignalStockOutcomeStatsActionBucket",
+        "description": "按 action（buy/hold/sell 等 8 态）分桶的单股后验统计。"
+      },
       "DecisionSignalProfileCalibration": {
         "properties": {
           "minimum_completed_sample_size": {
@@ -8322,6 +8779,170 @@
         ],
         "title": "DataPriorityView",
         "description": "Configured provider order for one usage scenario."
+      },
+      "DataQualityAnomaliesResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DataQualityAnomalyItem"
+            },
+            "type": "array",
+            "title": "Items",
+            "description": "Anomaly rows"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/DataQualityAnomalySummary",
+            "description": "Status summary across all anomalies"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary"
+        ],
+        "title": "DataQualityAnomaliesResponse",
+        "description": "Read-only anomaly list plus global status summary."
+      },
+      "DataQualityAnomalyItem": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id",
+            "description": "Row id"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "description": "Stock code of the anomalous daily row"
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "title": "Date",
+            "description": "Trading date of the anomalous daily row"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "description": "Anomaly kind, e.g. unit_scale_mismatch"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "warning"
+            ],
+            "title": "Severity",
+            "description": "critical or warning"
+          },
+          "data_source": {
+            "type": "string",
+            "title": "Data Source",
+            "description": "Source that produced the row"
+          },
+          "existing_data_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Existing Data Source",
+            "description": "Previously persisted source when a cross-source mismatch was detected"
+          },
+          "details": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details",
+            "description": "Parsed detection details; null when the stored JSON is invalid"
+          },
+          "suggested_fix": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Fix",
+            "description": "Parsed suggested fix; null when absent or invalid"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "repaired",
+              "dismissed"
+            ],
+            "title": "Status",
+            "description": "open / repaired / dismissed"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "Record creation time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At",
+            "description": "Last status change time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "date",
+          "kind",
+          "severity",
+          "data_source",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "DataQualityAnomalyItem",
+        "description": "One persisted daily-data anomaly record."
+      },
+      "DataQualityAnomalySummary": {
+        "properties": {
+          "total_by_status": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Total By Status",
+            "description": "Anomaly count grouped by status"
+          },
+          "open_critical": {
+            "type": "integer",
+            "title": "Open Critical",
+            "description": "Open anomalies with critical severity",
+            "default": 0
+          },
+          "open_by_kind": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Open By Kind",
+            "description": "Open anomaly count grouped by kind"
+          }
+        },
+        "type": "object",
+        "title": "DataQualityAnomalySummary",
+        "description": "Status overview across all persisted anomalies (independent of list filters)."
       },
       "DataProviderCapability": {
         "properties": {

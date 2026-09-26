@@ -3404,8 +3404,44 @@ class StockAnalysisPipeline:
         current_time: Optional[datetime] = None,
         analysis_targets: Optional[List[AnalysisTarget]] = None,
     ) -> List[AnalysisResult]:
+        """运行完整的分析流程（数据质量告警含异常路径兜底）。
+
+        在 ``_run_impl`` 外层用 try/finally 保证：分析中途抛出异常（网络/
+        LLM/内部错误）时，本轮窗口内已入库的数据质量异常仍会被推送——
+        此前只有正常走到收尾才会触发，崩溃轮次的告警会静默丢失。
+        early-return（无自选股/全 unsupported）与 dry-run 语义不变：
+        无新异常时窗口查询为空、自然跳过；dry-run 只记录不推送。
         """
-        运行完整的分析流程
+
+        data_quality_window_start = datetime.now()
+        try:
+            return self._run_impl(
+                stock_codes=stock_codes,
+                dry_run=dry_run,
+                send_notification=send_notification,
+                merge_notification=merge_notification,
+                current_time=current_time,
+                analysis_targets=analysis_targets,
+            )
+        finally:
+            # 数据质量护栏：异步推送本轮新发现的日线数据异常（system_error 路由）
+            # 系统信号语义：不受 send_notification/--no-notify 影响（与超时部分完成
+            # 通知同哲学）；dry-run 同样抓取并落库行情（护栏会记录异常），
+            # 但不推送——这些异常可在面板/CLI 查看，不会补推
+            if not dry_run:
+                self._notify_data_quality_anomalies_async(data_quality_window_start)
+
+    def _run_impl(
+        self,
+        stock_codes: Optional[List[str]] = None,
+        dry_run: bool = False,
+        send_notification: bool = True,
+        merge_notification: bool = False,
+        current_time: Optional[datetime] = None,
+        analysis_targets: Optional[List[AnalysisTarget]] = None,
+    ) -> List[AnalysisResult]:
+        """
+        运行完整的分析流程（run 的实现体；数据质量告警由 run 包装层统一触发）
 
         流程：
         1. 获取待分析的股票列表
@@ -3425,7 +3461,7 @@ class StockAnalysisPipeline:
             分析结果列表
         """
         start_time = time.time()
-        
+
         # 使用配置中的股票列表
         if stock_codes is None:
             self.config.refresh_stock_list()
@@ -3621,8 +3657,87 @@ class StockAnalysisPipeline:
                 self._send_notifications(results, report_type, skip_push=True)
             else:
                 self._send_notifications(results, report_type)
-        
+
         return results
+
+    def process_single_stock_with_quality_notify(
+        self,
+        code: str,
+        *,
+        skip_analysis: bool = False,
+        single_stock_notify: bool = False,
+        report_type: ReportType = ReportType.SIMPLE,
+        analysis_query_id: Optional[str] = None,
+        current_time: Optional[datetime] = None,
+        analysis_target: Optional[AnalysisTarget] = None,
+    ) -> Optional[AnalysisResult]:
+        """单股分析入口（API / 任务队列 / CLI 单股路径）。
+
+        与批量 ``run`` 同语义：在收尾（含异常路径）推送本轮新发现的
+        日线数据质量异常。批量分析内部不经过这里（``_run_impl`` 直接
+        调 ``process_single_stock``），避免批次内逐股重复触发告警。
+        """
+
+        data_quality_window_start = datetime.now()
+        try:
+            return self.process_single_stock(
+                code,
+                skip_analysis=skip_analysis,
+                single_stock_notify=single_stock_notify,
+                report_type=report_type,
+                analysis_query_id=analysis_query_id,
+                current_time=current_time,
+                analysis_target=analysis_target,
+            )
+        finally:
+            # skip_analysis=True 为仅取数路径（不分析不推送）
+            if not skip_analysis:
+                self._notify_data_quality_anomalies_async(data_quality_window_start)
+
+    def _notify_data_quality_anomalies_async(self, created_since: datetime) -> None:
+        """在守护线程中推送本轮新发现的数据质量异常。
+
+        只读查询 + 通知发送均失败于线程内部（notify 层还有一层
+        try/except），不会延迟或阻断分析主流程，也不会持有任何分析锁。
+        线程句柄保留在 ``self._data_quality_notify_thread``，供 CLI/服务
+        入口在退出前做有界 join（见 join_data_quality_notify）。
+        """
+
+        try:
+            from src.services.data_quality_notify import notify_new_daily_anomalies
+            from src.storage import DatabaseManager
+
+            db_manager = DatabaseManager.get_instance()
+
+            def _worker() -> None:
+                try:
+                    notify_new_daily_anomalies(db_manager, created_since=created_since)
+                except Exception:  # noqa: BLE001 - daemon 线程兜底
+                    logger.warning("数据质量异常通知线程异常", exc_info=True)
+
+            thread = threading.Thread(
+                target=_worker, daemon=True, name="data-quality-notify"
+            )
+            self._data_quality_notify_thread = thread
+            thread.start()
+        except Exception as exc:  # noqa: BLE001 - 通知属辅助路径
+            logger.debug("数据质量异常通知未触发: %s", exc)
+
+    def join_data_quality_notify(self, timeout_seconds: float = 10.0) -> None:
+        """等待数据质量告警线程结束（有界 join，供进程退出前调用）。
+
+        守护线程在短命进程（CLI 单次分析）退出时可能被直接杀死，
+        丢掉已经发出的最后一条系统告警；CLI/服务入口在收尾时调用本方法
+        有界等待，超时后放弃（通知始终是 best-effort，绝不无限阻塞退出）。
+        """
+
+        thread = getattr(self, "_data_quality_notify_thread", None)
+        if thread is None or not thread.is_alive():
+            return
+        try:
+            thread.join(timeout=max(0.0, float(timeout_seconds)))
+        except Exception as exc:  # noqa: BLE001 - join 失败不阻断退出
+            logger.debug("数据质量异常通知线程 join 失败: %s", exc)
 
     def _send_single_stock_notification(
         self,

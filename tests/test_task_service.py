@@ -42,9 +42,16 @@ class _FakePipeline:
     def process_single_stock(self, *args, **kwargs):
         return _make_failed_result(kwargs["code"])
 
+    def process_single_stock_with_quality_notify(self, *args, **kwargs):
+        return self.process_single_stock(*args, **kwargs)
+
 
 class _CapturingPipeline:
-    """Records the final ``process_single_stock`` kwargs for target assertions."""
+    """Records the final ``process_single_stock`` kwargs for target assertions.
+
+    生产代码经 ``process_single_stock_with_quality_notify`` 入口进入
+    （单股路径的数据质量告警钩子），桩镜像该入口并转发到记录方法。
+    """
 
     calls = []  # class-level so tests can assert via the fake module attribute
 
@@ -54,6 +61,9 @@ class _CapturingPipeline:
     def process_single_stock(self, *args, **kwargs):
         type(self).calls.append(kwargs)
         return _make_failed_result(kwargs["code"])
+
+    def process_single_stock_with_quality_notify(self, *args, **kwargs):
+        return self.process_single_stock(*args, **kwargs)
 
 
 class TestTaskService(unittest.TestCase):

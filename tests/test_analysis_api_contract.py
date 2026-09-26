@@ -162,6 +162,19 @@ def _market_phase_summary() -> dict:
     }
 
 
+def _pipeline_single_stock_mock() -> MagicMock:
+    """AnalysisService 现经 ``process_single_stock_with_quality_notify``
+    进入单股分析（单股路径的数据质量告警钩子）；让该入口转发到
+    ``process_single_stock``，既有参数断言继续校验真实透传链路。
+    """
+
+    pipeline_instance = MagicMock()
+    pipeline_instance.process_single_stock_with_quality_notify.side_effect = (
+        lambda *args, **kwargs: pipeline_instance.process_single_stock(*args, **kwargs)
+    )
+    return pipeline_instance
+
+
 class AnalysisApiContractTestCase(unittest.TestCase):
     def test_market_review_region_is_authoritative_across_active_task_lifecycle(self) -> None:
         if (
@@ -1430,7 +1443,7 @@ class AnalysisApiContractTestCase(unittest.TestCase):
 
     def test_report_type_full_maps_to_full_pipeline_mode(self) -> None:
         service = object.__new__(AnalysisService)
-        pipeline_instance = MagicMock()
+        pipeline_instance = _pipeline_single_stock_mock()
         pipeline_instance.process_single_stock.return_value = object()
 
         with patch("src.config.get_config", return_value=SimpleNamespace()), \
@@ -1447,7 +1460,7 @@ class AnalysisApiContractTestCase(unittest.TestCase):
 
     def test_analysis_service_passes_request_skills_to_pipeline(self) -> None:
         service = object.__new__(AnalysisService)
-        pipeline_instance = MagicMock()
+        pipeline_instance = _pipeline_single_stock_mock()
         pipeline_instance.process_single_stock.return_value = object()
         request_skills = ["growth_quality"]
 
@@ -1467,7 +1480,7 @@ class AnalysisApiContractTestCase(unittest.TestCase):
 
     def test_report_type_full_is_preserved_in_response_metadata(self) -> None:
         service = AnalysisService()
-        pipeline_instance = MagicMock()
+        pipeline_instance = _pipeline_single_stock_mock()
         pipeline_instance.process_single_stock.return_value = SimpleNamespace(
             code="600519",
             name="贵州茅台",
@@ -1493,7 +1506,7 @@ class AnalysisApiContractTestCase(unittest.TestCase):
 
     def test_analysis_service_returns_none_and_records_last_error_for_unsuccessful_pipeline_result(self) -> None:
         service = AnalysisService()
-        pipeline_instance = MagicMock()
+        pipeline_instance = _pipeline_single_stock_mock()
         pipeline_instance.process_single_stock.return_value = SimpleNamespace(
             success=False,
             error_message="LLM stream interrupted",
@@ -1849,7 +1862,7 @@ class AnalysisApiContractTestCase(unittest.TestCase):
 
     def test_analysis_service_passes_analysis_phase_to_pipeline(self) -> None:
         service = AnalysisService()
-        pipeline_instance = MagicMock()
+        pipeline_instance = _pipeline_single_stock_mock()
         pipeline_instance.process_single_stock.return_value = SimpleNamespace(
             success=True,
             code="600519",

@@ -174,9 +174,10 @@ def test_tencent_fetcher_parses_qfq_daily_response() -> None:
     payload = {
         "data": {
             "sz000001": {
+                # amount 为量级真实值：手计响应下 amount ≈ volume(手) × 100 × close
                 "qfqday": [
-                    ["2026-05-06", "10.00", "10.50", "10.80", "9.90", "12345", "67890"],
-                    ["2026-05-07", "10.50", "10.70", "10.90", "10.30", "22345", "77890"],
+                    ["2026-05-06", "10.00", "10.50", "10.80", "9.90", "12345", "12962250"],
+                    ["2026-05-07", "10.50", "10.70", "10.90", "10.30", "22345", "23015350"],
                 ]
             }
         }
@@ -220,7 +221,7 @@ def test_tencent_fetcher_parses_qfq_daily_response() -> None:
     assert len(df) == 2
     assert float(df.iloc[0]["close"]) == 10.5
     assert float(df.iloc[0]["volume"]) == 1234500.0
-    assert float(df.iloc[1]["amount"]) == 77890.0
+    assert float(df.iloc[1]["amount"]) == 23015350.0
 
 
 def test_tencent_fetcher_requests_explicit_historical_date_window() -> None:
@@ -228,7 +229,7 @@ def test_tencent_fetcher_requests_explicit_historical_date_window() -> None:
         "data": {
             "sz000001": {
                 "qfqday": [
-                    ["2020-05-04", "8.00", "8.20", "8.40", "7.80", "5000", "20000"],
+                    ["2020-05-04", "8.00", "8.20", "8.40", "7.80", "5000", "4100000"],
                 ]
             }
         }
@@ -284,6 +285,107 @@ def test_tencent_fetcher_preserves_amount_column_when_missing() -> None:
     assert "amount" in df.columns
     assert pd.isna(df.iloc[0]["amount"])
     assert float(df.iloc[0]["volume"]) == 100000.0
+
+
+def test_tencent_fetcher_keeps_star_market_volume_in_shares() -> None:
+    """Issue #2350 回归：科创板（688）腾讯返回的成交量单位是「股」，
+    不得再 ×100（其余板块返回「手」，保持 ×100 换算不变）。
+    amount 佐证 ratio ≈ 1（股计证据），与文档契约一致。"""
+
+    payload = {
+        "data": {
+            "sh688111": {
+                "qfqday": [
+                    ["2026-05-06", "40.00", "41.00", "42.00", "39.00", "4521640", "185387240"],
+                ]
+            }
+        }
+    }
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self):
+            return payload
+
+    with patch("data_provider.tencent_fetcher.requests.get", return_value=FakeResponse()):
+        df = TencentFetcher().get_daily_data("688111", start_date="2026-05-01", end_date="2026-05-10")
+
+    assert float(df.iloc[0]["volume"]) == 4521640.0
+    assert float(df.iloc[0]["amount"]) == 185387240.0
+
+
+def _fetch_daily(*, symbol: str, rows: list) -> pd.DataFrame:
+    """构造 symbol 响应并取回日线（证据链用例共用）。"""
+
+    payload = {"data": {symbol: {"qfqday": rows}}}
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self):
+            return payload
+
+    with patch("data_provider.tencent_fetcher.requests.get", return_value=FakeResponse()):
+        return TencentFetcher().get_daily_data(
+            symbol[2:], start_date="2026-05-01", end_date="2026-05-10"
+        )
+
+
+def test_tencent_fetcher_self_corrects_star_market_row_with_lots_evidence() -> None:
+    """证据自校验：688 行的 amount 佐证指向「手」时（文档契约与线上
+    实际不符的形态），按证据 ×100，不会把 volume 写小 100 倍。"""
+
+    # 12345 手 × 100 × 10.50 = 12962250 元 → ratio ≈ 100 → 手
+    df = _fetch_daily(
+        symbol="sh688111",
+        rows=[["2026-05-06", "10.00", "10.50", "10.80", "9.90", "12345", "12962250"]],
+    )
+    assert float(df.iloc[0]["volume"]) == 1234500.0
+
+
+def test_tencent_fetcher_self_corrects_non_star_market_row_with_shares_evidence() -> None:
+    """证据自校验：其它板块行若实际以「股」返回（源行为漂移），
+    amount 佐证 ratio ≈ 1 时不放大，避免写大 100 倍。"""
+
+    # 1234500 股 × 10.50 = 12962250 元 → ratio ≈ 1 → 股
+    df = _fetch_daily(
+        symbol="sz000001",
+        rows=[["2026-05-06", "10.00", "10.50", "10.80", "9.90", "1234500", "12962250"]],
+    )
+    assert float(df.iloc[0]["volume"]) == 1234500.0
+
+
+def test_tencent_fetcher_falls_back_to_documented_unit_when_amount_missing() -> None:
+    """无 amount 佐证（腾讯部分行情不返回该列）时回落文档契约：
+    科创板=股保持原值、其它板块=手 ×100。"""
+
+    star_df = _fetch_daily(
+        symbol="sh688111",
+        rows=[["2026-05-06", "40.00", "41.00", "42.00", "39.00", "4521640"]],
+    )
+    assert float(star_df.iloc[0]["volume"]) == 4521640.0
+
+    main_df = _fetch_daily(
+        symbol="sh600519",
+        rows=[["2026-05-06", "100.00", "101.00", "102.00", "99.00", "1000"]],
+    )
+    assert float(main_df.iloc[0]["volume"]) == 100000.0
+
+
+def test_tencent_fetcher_ignores_degenerate_amount_evidence() -> None:
+    """amount 单位异常（非元量级，ratio 落在证据带下方）时不采信，
+    回落文档契约默认，避免误翻转换算方向。"""
+
+    # 手计行 + 万元量级 amount：ratio = 1296.2/(12345×10.5) ≈ 0.01 < 0.05
+    # → 不构成「股」证据 → 000001 走文档默认手→股 ×100
+    df = _fetch_daily(
+        symbol="sz000001",
+        rows=[["2026-05-06", "10.00", "10.50", "10.80", "9.90", "12345", "1296.2"]],
+    )
+    assert float(df.iloc[0]["volume"]) == 1234500.0
 
 
 def test_tencent_fetcher_returns_empty_frame_for_empty_history() -> None:

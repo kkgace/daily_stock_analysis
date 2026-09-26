@@ -223,6 +223,9 @@ class StockPoster:
     entry_plan: str = ""
     risk_control: str = ""
     data_source: str = ""
+    # 「建议回测」卡片整段 Markdown（含标题）：结构化提取不含该小节，
+    # 不单独渲染就会在单股海报里丢失（通知文本有卡、图片无卡）
+    track_record: str = ""
 
 
 @dataclass
@@ -680,6 +683,23 @@ def _section(markdown_text: str, *terms: str) -> str:
     return ""
 
 
+def _full_section(markdown_text: str, *terms: str) -> str:
+    """返回匹配标题的整段小节（含标题行），用于「建议回测」卡片整段渲染。"""
+    matches = list(_HEADING_RE.finditer(markdown_text or ""))
+    for index, match in enumerate(matches):
+        title = _plain(match.group(2)).lower()
+        if not any(term.lower() in title for term in terms):
+            continue
+        level = len(match.group(1))
+        end = len(markdown_text)
+        for following in matches[index + 1 :]:
+            if len(following.group(1)) <= level:
+                end = following.start()
+                break
+        return markdown_text[match.start() : end].strip()
+    return ""
+
+
 def _parse_tables(markdown_text: str) -> list[Table]:
     lines = (markdown_text or "").splitlines()
     tables: list[Table] = []
@@ -1016,6 +1036,9 @@ def _stock_data(markdown_text: str, generated_on: date) -> StockPoster:
             else _clean_value(trend_match.group(1), limit=16) if trend_match else ""
         ),
         conclusion=conclusion,
+        track_record=_full_section(
+            markdown_text, "建议回测", "Signal Track Record", "시그널 트랙"
+        ),
     )
 
     snapshot_section = _section(markdown_text, "市场快照", "当日行情", "market snapshot", "시세 스냅샷")
@@ -1856,8 +1879,17 @@ def _stock_body(data: StockPoster, fallback_html: str) -> str:
         position_rows += f'<div class="position-row"><span class="pill negative">{_escape(_poster_text(language, "risk_control"))}</span><p>{_escape(data.risk_control)}</p></div>'
     positions = _section_html(_poster_text(language, "position_advice"), "▣", f'<div class="position-box">{position_rows}</div>') if position_rows else ""
     structured = any((signal_row, conclusion, snapshot, sniper, technical, watch, insights, positions))
+    # 「建议回测」卡片不在结构化字段里：结构化渲染时单独补上，
+    # 避免单股海报丢失该卡片（非结构化路径的 fallback 已含全文，不重复渲染）
+    track_html = ""
+    if structured and getattr(data, "track_record", ""):
+        track_html = (
+            '<section class="report-fallback"><article class="report-content">'
+            f"{_render_markdown_fragment(data.track_record)}"
+            "</article></section>"
+        )
     fallback = f'<section class="report-fallback"><article class="report-content">{fallback_html}</article></section>' if not structured else ""
-    return f"{signal_row}{conclusion}{snapshot}{sniper}{technical}{watch}{insights}{positions}{fallback}"
+    return f"{signal_row}{conclusion}{snapshot}{sniper}{technical}{watch}{insights}{positions}{track_html}{fallback}"
 
 
 def _market_body(data: MarketPoster, fallback_html: str, markdown_text: str) -> str:

@@ -223,6 +223,84 @@ LONGBRIDGE_ACCESS_TOKEN=your_access_token
 新记录会把该三态值随分析结果持久化，保证实时报告和历史报告一致。旧记录若没有保存
 `news_result_count`，其新闻检索状态只能视为未知，历史展示保持原样，不会倒推为“未配置搜索渠道”。
 
+## 数据入库质量护栏
+
+> 背景：[#2350](https://github.com/ZhuLinsen/daily_stock_analysis/issues/2350) 一类问题——腾讯日线对科创板返回的
+> 成交量单位是「股」、其余板块是「手」，统一 `×100` 换算导致科创板入库 volume 偏大 100 倍，
+> 存在半年才暴露（自检依赖的 amount 字段腾讯不返回，恰好落在盲区）。
+> `TencentFetcher` 现已按板块区分换算，并带运行时自校验：同一响应内
+> 有 amount 佐证时，用 `amount / (volume × close)` 的中位数证据判定单位
+> （≈100 为手、≈1 为股），证据与文档契约不符时以证据为准——线上行为
+> 变化不会被过时文档带偏；无 amount（腾讯部分行情不返回）时回落文档
+> 契约默认（科创板=股、其它板块=手）。存量坏行仍需下方的修复 CLI 清理；
+> 护栏继续作为任意数据源单位/口径漂移的通用防线。
+
+日线落库（`save_daily_data`）前会运行三类检测，**异常只记录、不阻断入库**：
+
+| 检测 | 严重级 | 说明 |
+| --- | --- | --- |
+| `unit_scale_mismatch` | critical | amount / (volume × close) 落在 [0.2, 5] 之外 → 量纲/单位错误（如 100 倍手↔股混淆） |
+| `volume_history_jump` / `close_history_jump` | warning | 相对近 10 根 K 线中位数出现数量级跳变（覆盖 amount 缺失的盲区） |
+| `cross_source_mismatch` | warning | 同票同日即将被另一来源覆盖时，两来源 volume/close 不一致 |
+
+异常写入新表 `stock_data_anomalies`（按 `(code, date, kind, data_source)` 幂等去重），日志同步
+WARNING。配置：`DATA_QUALITY_GUARD_ENABLED`（默认 true；设为 false 后恢复原行为，零额外查询）。
+
+### 存量扫描与修复 CLI
+
+```bash
+# 只读扫描报告（近 90 天，可用 --data-quality-code 600519,688111 限定股票）
+python main.py --data-quality
+
+# 应用量纲修复：只修复有 amount 佐证的高置信项（volume -> amount/close）
+python main.py --data-quality --data-quality-apply
+
+# 收窄窗口
+python main.py --data-quality --data-quality-days 30
+```
+
+- 可自动修复项仅限 `unit_scale_mismatch` 且 amount/close 齐备的行；跳变类异常只报告不修复
+  （数据源单位口径需人工确认，不同 fetcher 的 volume 单位现状并不统一）。
+- 自动修复有两道置信门槛：量纲比值必须接近已知单位换算错误（≈100 倍量级），
+  且修复值必须与近 10 根 K 线成交量中位数同数量级。vwap/close 在正常行情下的
+  极端偏差（如无涨跌停市场闪崩日可达 5~19 倍）会被拦下——只报告，不修改。
+- 修复后对应异常记录置为 `repaired`；重复执行幂等：上一轮已把值修好但状态
+  未标（进程中断）时，重跑会补标而不是卡在待处理。
+- 护栏启用前的存量坏行没有台账记录：apply 会先按检测结果补录一条台账再置
+  `repaired`，保证面板与 API 对这些修复可见。
+- 修复会直接更新 `stock_daily.volume`，除权/复权等极端行情下请先核对报告再 apply。
+- CLI 参数约束：`--data-quality-apply` 必须与 `--data-quality` 一起使用（单独使用
+  直接报错退出，不会静默落入默认完整分析流程）；`--data-quality-days` 必须为
+  正整数（0/负数报错退出）。
+
+### 异常告警推送
+
+分析任务收尾时，系统会把本轮新发现的异常聚合成一条告警，经 system_error 通知路由推送
+（`NOTIFICATION_SYSTEM_ERROR_CHANNELS`，留空=全部已启用渠道）：
+
+- 开关 `DATA_QUALITY_NOTIFY_ENABLED`（默认 true，false 静默跳过）；
+- 计数与 critical 判定走 SQL 全量聚合：新异常超过单条消息展示上限（500 条）时，
+  消息会标注「共 N 条，仅展示最新 500 条」，且 critical 不会因子集被截而降级；
+- 按 kind 聚合并截断代码列表，含 critical 时按 error 级发送，否则 warning；
+- 推送在守护线程执行、完全 fail-open，渠道失败只记日志，绝不影响分析主流程；
+- 降噪 key 含批次日期维度：跨日的新异常不会被前一天同股票的告警吞掉；
+  冷却 key 保留 kind 维度：同股票不同类型的两批告警互不抑制；
+  重复内容由通知降噪层（dedup/cooldown）自动抑制；
+- 该推送是系统信号语义，`--no-notify` 只关闭投资报告推送，不抑制数据质量告警；
+- 覆盖面：批量分析任务（`run`）与单股分析入口（API/任务队列/CLI 单股，
+  `process_single_stock_with_quality_notify`）都会在收尾时触发告警；
+  批量内部的逐股循环不单独触发，只在批次收尾统一告警一次；
+- 异常路径兜底：分析中途抛出 Python 异常时，`run`/单股入口的
+  try/finally 仍会推送本轮窗口内已入库的异常；分析进程退出前会对
+  告警线程做有界 join（默认 10s），短命 CLI 进程不会丢最后一条告警；
+- 残余边界（保持 best-effort 语义）：进程被 SIGKILL/调度器硬超时
+  直接杀死时 finally 不会执行、join 无法生效，该轮已入库的异常不补推
+  （可在面板与 `--data-quality` CLI 查看）；有界 join 超时后放弃等待，
+  通知永远不无限阻塞进程退出。
+- `--dry-run` 仅抓取数据不推送（异常照常入库，可在面板/CLI 查看，但不会补推）；
+- 已修复（repaired）的异常若被坏数据源再次重写，护栏会把它回开为待处理
+  （open）并更新 `updated_at`；人工忽略（dismissed）的记录保持不变。
+
 ## 后续可做的产品化增强
 
 1. 数据源 Doctor 页面：展示每个源最近成功时间、失败原因、熔断状态和下一次恢复探测时间。

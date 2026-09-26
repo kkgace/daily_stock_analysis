@@ -311,6 +311,9 @@ class NotificationService(
         self._report_summary_only = getattr(config, 'report_summary_only', False)
         self._report_show_llm_model = getattr(config, 'report_show_llm_model', True)
         self._history_compare_cache: Dict[Tuple[int, str, Tuple[Tuple[str, str], ...]], Dict[str, List[Dict[str, Any]]]] = {}
+        # 建议回测卡片缓存：key=(track_days, report_language, codes)，避免聚合
+        # 报告多次渲染时重复触发懒评估
+        self._signal_stats_cache: Dict[Tuple[int, str, Tuple[str, ...]], Dict[str, Dict[str, Any]]] = {}
 
         # 初始化各渠道
         AstrbotSender.__init__(self, config)
@@ -409,6 +412,50 @@ class NotificationService(
 
         self._history_compare_cache[cache_key] = history_by_code
         return {"history_by_code": history_by_code}
+
+    def _get_signal_stats_context(self, results: List[AnalysisResult]) -> Dict[str, Any]:
+        """近 N 天建议后验统计（报告「建议回测」卡片），供模板与拼段共用。
+
+        - REPORT_SIGNAL_TRACK_DAYS<=0 时整卡关闭，返回空映射；
+        - 对每只股票懒跑一次按股 outcome 评估（幂等：已完成的跳过），
+          再聚合 hit/miss/neutral；无已完成评估的股票不出卡片；
+        - 任何失败只降级为空卡（fail-open），不影响报告生成。
+        """
+        config = get_config()
+        track_days = getattr(config, 'report_signal_track_days', 30)
+        if track_days <= 0 or not results:
+            return {"signal_stats_by_code": {}}
+
+        report_language = self._get_report_language(results)
+        codes = list(dict.fromkeys(r.code for r in results))
+        cache_key = (track_days, report_language, tuple(sorted(codes)))
+        if cache_key in self._signal_stats_cache:
+            return {"signal_stats_by_code": self._signal_stats_cache[cache_key]}
+
+        stats_by_code: Dict[str, Dict[str, Any]] = {}
+        try:
+            from src.services.decision_signal_outcome_service import (
+                DecisionSignalOutcomeService,
+            )
+
+            service = DecisionSignalOutcomeService()
+            for code in codes:
+                try:
+                    stats = service.get_stock_stats(
+                        stock_code=code,
+                        days=track_days,
+                        refresh=True,
+                    )
+                except Exception as exc:
+                    logger.debug("Signal track record skipped for %s: %s", code, exc)
+                    continue
+                if stats.get("completed"):
+                    stats_by_code[code] = stats
+        except Exception as exc:
+            logger.debug("Signal track record context skipped: %s", exc)
+
+        self._signal_stats_cache[cache_key] = stats_by_code
+        return {"signal_stats_by_code": stats_by_code}
 
     @staticmethod
     def _empty_news_disclosure(result: "AnalysisResult", language: str = "zh") -> Optional[str]:
@@ -1287,6 +1334,7 @@ class NotificationService(
         volume_analysis_label = _nlabel("Volume", "量能", "거래량")
         news_heading = _nlabel("News Flow", "消息面", "뉴스 흐름")
         if getattr(config, 'report_renderer_enabled', False) and results:
+            from src.services.decision_signal_summary import format_signal_track_record
             from src.services.report_renderer import render
             out = render(
                 platform='markdown',
@@ -1295,6 +1343,8 @@ class NotificationService(
                 summary_only=self._report_summary_only,
                 extra_context={
                     **self._get_history_compare_context(results),
+                    **self._get_signal_stats_context(results),
+                    "format_signal_track_record": format_signal_track_record,
                     "report_language": report_language,
                 },
             )
@@ -1345,6 +1395,11 @@ class NotificationService(
 
         # 逐个股票的决策仪表盘（Issue #262: summary_only 时跳过详情）
         if not self._report_summary_only:
+            from src.services.decision_signal_summary import format_signal_track_record
+
+            signal_stats_by_code = self._get_signal_stats_context(results).get(
+                "signal_stats_by_code", {}
+            )
             for result in sorted_results:
                 signal_text, signal_emoji, signal_tag = self._get_signal_level(result)
                 dashboard = result.dashboard if hasattr(result, 'dashboard') and result.dashboard else {}
@@ -1601,6 +1656,13 @@ class NotificationService(
                         if result.news_summary:
                             report_lines.append(f"{result.news_summary}")
                         report_lines.append("")
+
+                # ========== 建议回测（近 N 天命中率卡片）==========
+                track_stats = signal_stats_by_code.get(result.code)
+                if track_stats:
+                    track_card = format_signal_track_record(track_stats, report_language)
+                    if track_card:
+                        report_lines.append(track_card)
 
                 if self._append_data_sources_line(report_lines, result, labels):
                     report_lines.append("")
@@ -2108,6 +2170,21 @@ class NotificationService(
 
         # 财务摘要 / 股东回报 / 关联板块（数据缺失时自动隐藏对应小节）
         self._append_fundamental_blocks(lines, result)
+
+        # 「建议回测」卡片：与 dashboard 报告同源（单股推送形态此前缺失，
+        # 导致 SINGLE_STOCK_NOTIFY 用户永远看不到该卡片）
+        try:
+            stats_context = self._get_signal_stats_context([result])
+            stats = (stats_context.get("signal_stats_by_code") or {}).get(result.code)
+            if stats:
+                from src.services.decision_signal_summary import format_signal_track_record
+
+                card = format_signal_track_record(stats, report_language)
+                if card:
+                    lines.append(card)
+                    lines.append("")
+        except Exception as exc:  # noqa: BLE001 - 卡片属增强信息，绝不影响单股推送
+            logger.debug("Single-stock signal track card skipped: %s", exc)
 
         lines.append("---")
         if self._should_show_llm_model():

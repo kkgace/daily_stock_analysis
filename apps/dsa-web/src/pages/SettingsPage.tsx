@@ -13,6 +13,7 @@ import {
   AgentBackendStatusPanel,
   AuthSettingsCard,
   ChangePasswordCard,
+  DataAnomalyStatusPanel,
   GenerationBackendStatusPanel,
   IntelligentImport,
   LLMChannelEditor,
@@ -1528,6 +1529,20 @@ const SettingsPage: React.FC = () => {
                   disabled={isSaving || isLoading}
                 />
               </SettingsSectionCard>
+            ) : null}
+            {activeCategory === 'data_source' ? (
+              <SettingsPanelErrorBoundary
+                title={t('settings.dataAnomalyPanelTitle')}
+                resetKey={`data-anomalies:${configVersion}`}
+                diagnosticHint={settingsPanelDiagnosticHint}
+              >
+                <SettingsSectionCard
+                  title={t('settings.dataAnomalySectionTitle')}
+                  description={t('settings.dataAnomalySectionDescription')}
+                >
+                  <DataAnomalyStatusPanel disabled={isSaving || isLoading} />
+                </SettingsSectionCard>
+              </SettingsPanelErrorBoundary>
             ) : null}
             {activeCategory === 'ai_model' ? (
               <SettingsSectionCard

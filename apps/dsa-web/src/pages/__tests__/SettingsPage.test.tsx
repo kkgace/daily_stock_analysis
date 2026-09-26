@@ -164,6 +164,9 @@ vi.mock('../../components/settings', () => ({
       {items.map((item) => `${item.key}=${item.value}`).join('|')}
     </div>
   ),
+  DataAnomalyStatusPanel: () => (
+    <div>data anomaly status panel mock</div>
+  ),
   AgentBackendStatusPanel: ({
     items,
     selectedBackend,
@@ -669,6 +672,18 @@ describe('SettingsPage', () => {
     expect(screen.getByText('认证与登录保护')).toBeInTheDocument();
     expect(screen.getByText('修改密码')).toBeInTheDocument();
     expect(load).toHaveBeenCalled();
+  });
+
+  it('embeds the data quality anomaly panel in the data source category', async () => {
+    // 守卫回归：面板必须挂在 data_source 分类下（曾出现只加组件未挂载的假绿）。
+    // 面板本体被 SettingsPage.test 的组件桩替换，这里断言嵌入点与小节标题。
+    useSystemConfigMock.mockReturnValue(buildSystemConfigState({ activeCategory: 'data_source' }));
+
+    renderSettingsPage();
+
+    expect(await screen.findByText('data anomaly status panel mock')).toBeInTheDocument();
+    expect(screen.getByText('数据质量异常')).toBeInTheDocument();
+    expect(settingsPanelErrorBoundary).toHaveBeenCalledWith('数据质量异常面板');
   });
 
   it('renders first-run setup checks and routes setup actions', async () => {

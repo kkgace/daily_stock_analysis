@@ -223,7 +223,7 @@ P3 新增三类通知路由配置：
 | --- | --- | --- |
 | `report` | `NOTIFICATION_REPORT_CHANNELS` | 单股推送、聚合日报、大盘复盘、合并推送、飞书文档成功链接 |
 | `alert` | `NOTIFICATION_ALERT_CHANNELS` | EventMonitor 触发通知 |
-| `system_error` | `NOTIFICATION_SYSTEM_ERROR_CHANNELS` | 预留能力；当前不新增自动系统错误生产者 |
+| `system_error` | `NOTIFICATION_SYSTEM_ERROR_CHANNELS` | runtime scheduler 硬超时部分完成通知（`DSA_TIMEOUT_PARTIAL_NOTIFY`，Refs #2328）；数据质量护栏异常聚合告警（`DATA_QUALITY_NOTIFY_ENABLED`，分析任务收尾时推送本轮新发现的日线异常） |
 
 配置值为逗号分隔渠道枚举：`wechat,dingtalk,feishu,telegram,email,pushover,ntfy,gotify,pushplus,serverchan3,custom,discord,slack,astrbot`。
 
