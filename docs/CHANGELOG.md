@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [修复] Web 数据质量异常面板：首个请求返回前不再闪现"未发现异常"假空态；交易日列直接展示原 `YYYY-MM-DD` 字符串（修复西时区因 UTC 解析偏移一天）；列表达 200 行上限时显示截断提示（中英文案）。
 - [修复] `--data-quality-apply` 单独使用时直接报错退出（此前被静默忽略并落入默认完整分析流程），`--data-quality-days` 传 0/负数报错退出（此前静默变为 90 天）。
 - [测试] ENV_FILE 密闭 fixture 增加 dotenv 导出键快照恢复：堵住临时 .env 键泄漏到进程环境并被 bootstrap-override 重捕获压过真实 .env 的路径；补充 apply 置信门槛/幂等补标/台账补录/severity 排序/告警截断计数、单股与分享图卡片、per-stock stats 端点请求级用例（days 边界 422、market 400、空数据 null 形状、分桶 `{action}` 字段名）与 OpenAPI/docs 路径同步守卫。
+- [文档] 重写 README 为本仓库视角：新增「本仓库增强」一览（质量护栏、扫描修复 CLI、腾讯科创板量纲修复、决策信号后验闭环、只读 API、Web 异常面板、数据质量系统告警）与数据质量 CLI 常用命令、护栏告警推送示例；徽章/链接改为本仓库事实（License/Python），去除上游专属的赞助横幅、trendshift/arXiv 徽章与作者联系方式，新增上游致谢节；docs/README_EN.md、docs/README_CHT.md 为上游翻译版未同步改写。
 
 <!-- 新条目格式：- [类型] 描述（类型取值：新功能/改进/修复/文档/测试/chore）-->
 <!-- 每条独立一行追加到本段末尾，无需分类标题，合并时冲突最小 -->
