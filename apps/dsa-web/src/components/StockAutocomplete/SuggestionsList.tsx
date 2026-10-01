@@ -3,9 +3,9 @@
  */
 
 import type { CSSProperties } from 'react';
-import type { StockSuggestion } from '../../types/stockIndex';
-import { Badge } from '../common';
-import { cn } from '../../utils/cn';
+import type { StockSuggestion } from '@/types/stockIndex';
+import { Badge } from '@/components/ui';
+import { cn } from '@/utils/cn';
 
 export interface SuggestionsListProps {
   /** Suggestion list */

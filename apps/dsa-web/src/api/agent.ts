@@ -1,8 +1,8 @@
-import apiClient from './index';
-import { API_BASE_URL } from '../utils/constants';
-import { createApiError, isApiRequestError, parseApiError } from './error';
-import { toCamelCase } from './utils';
-import type { AgentBackendStatusResponse } from '../types/systemConfig';
+import apiClient from '@/api/index';
+import { API_BASE_URL } from '@/utils/constants';
+import { createApiError, isApiRequestError, parseApiError } from '@/api/error';
+import { toCamelCase } from '@/api/utils';
+import type { AgentBackendStatusResponse } from '@/features/settings/types/systemConfig';
 
 export interface ChatStreamOptions {
   signal?: AbortSignal;

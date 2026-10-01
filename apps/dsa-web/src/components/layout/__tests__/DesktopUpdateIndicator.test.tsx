@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetSharedDesktopUpdateState } from '../../../desktop/updateStore';
-import { DesktopUpdateIndicator } from '../DesktopUpdateIndicator';
+import { resetSharedDesktopUpdateState } from '@/desktop/updateStore';
+import { DesktopUpdateIndicator } from '@/components/layout/DesktopUpdateIndicator';
 
 const {
   desktopCheckForUpdates,

@@ -218,6 +218,11 @@ export default defineConfig({
     __APP_REVISION__: JSON.stringify(appRevision),
     __APP_BUILD_TIME__: JSON.stringify(buildTime),
   },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+    },
+  },
   plugins: [
     buildMetadataPlugin(),
     tailwindcss(),

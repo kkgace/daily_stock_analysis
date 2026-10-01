@@ -7,9 +7,9 @@
  * - Contains match: code contains, name contains, pinyin contains
  */
 
-import type { StockIndexItem, StockSuggestion } from '../types/stockIndex';
-import { normalizeQuery } from './normalizeQuery';
-import { MATCH_SCORE, SEARCH_CONFIG } from './stockIndexFields';
+import type { StockIndexItem, StockSuggestion } from '@/types/stockIndex';
+import { normalizeQuery } from '@/utils/normalizeQuery';
+import { MATCH_SCORE, SEARCH_CONFIG } from '@/utils/stockIndexFields';
 
 export interface SearchOptions {
   /** Limit on number of results to return */

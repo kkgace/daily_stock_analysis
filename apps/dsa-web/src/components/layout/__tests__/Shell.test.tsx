@@ -1,19 +1,19 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { ThemeProvider } from '../../theme/ThemeProvider';
-import { Shell } from '../Shell';
+import { ThemeProvider } from '@/components/theme/ThemeProvider';
+import { Shell } from '@/components/layout/Shell';
 
 const mockLogout = vi.fn().mockResolvedValue(undefined);
 
-vi.mock('../../../contexts/AuthContext', () => ({
+vi.mock('@/features/auth/contexts/AuthContext', () => ({
   useAuth: () => ({
     authEnabled: true,
     logout: mockLogout,
   }),
 }));
 
-vi.mock('../../../stores/agentChatStore', () => ({
+vi.mock('@/features/chat/stores/agentChatStore', () => ({
   useAgentChatStore: (selector: (state: { completionBadge: boolean }) => unknown) =>
     selector({ completionBadge: true }),
 }));

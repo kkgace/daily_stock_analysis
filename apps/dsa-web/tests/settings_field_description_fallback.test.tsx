@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { SettingsField } from '../src/components/settings/SettingsField';
+import { SettingsField } from '../src/features/settings/components/settings/SettingsField';
 
 describe('SettingsField description fallback', () => {
   it('uses schema.description when i18n map has no description for key', () => {

@@ -1,13 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { createParsedApiError, getParsedApiError, type ParsedApiError } from '../api/error';
-import { systemConfigApi, SystemConfigConflictError, SystemConfigValidationError } from '../api/systemConfig';
+import { createParsedApiError, getParsedApiError, type ParsedApiError } from '@/api/error';
+import { systemConfigApi, SystemConfigConflictError, SystemConfigValidationError } from '@/features/settings/api/systemConfig';
 import type {
   ConfigValidationIssue,
   SystemConfigCategorySchema,
   SystemConfigItem,
   SystemConfigUpdateItem,
-} from '../types/systemConfig';
-import { serializeStockListValue } from '../utils/stockList';
+} from '@/features/settings/types/systemConfig';
+import { serializeStockListValue } from '@/utils/stockList';
 
 type ToastState = {
   type: 'success';

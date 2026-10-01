@@ -4,8 +4,8 @@
  * Responsible for loading and parsing stock index data
  */
 
-import type { StockIndexData, StockIndexItem, StockIndexTuple } from '../types/stockIndex';
-import { INDEX_FIELD } from './stockIndexFields';
+import type { StockIndexData, StockIndexItem, StockIndexTuple } from '@/types/stockIndex';
+import { INDEX_FIELD } from '@/utils/stockIndexFields';
 
 const STOCK_INDEX_LOAD_TIMEOUT_MS = 10_000;
 

@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useUiLanguage } from '../contexts/UiLanguageContext';
+import { useUiLanguage } from '@/contexts/UiLanguageContext';
 import {
   canUseDesktopUpdateApi,
   getDesktopAppVersion,
   getDesktopRuntimeApi,
   type DesktopUpdateState,
-} from '../desktop/runtime';
+} from '@/desktop/runtime';
 import {
   beginDesktopUpdateCheck,
   endDesktopUpdateCheck,
@@ -13,8 +13,8 @@ import {
   isDesktopUpdateCheckInFlight,
   setSharedDesktopUpdateState,
   subscribeSharedDesktopUpdateState,
-} from '../desktop/updateStore';
-import { getDesktopUpdateNotice, isBusyDesktopUpdateStatus, normalizeDesktopUpdateState } from '../desktop/updateState';
+} from '@/desktop/updateStore';
+import { getDesktopUpdateNotice, isBusyDesktopUpdateStatus, normalizeDesktopUpdateState } from '@/desktop/updateState';
 
 export function useDesktopUpdate() {
   const { t } = useUiLanguage();

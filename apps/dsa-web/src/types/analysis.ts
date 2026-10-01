@@ -3,7 +3,7 @@
  * Aligned with the API schema.
  */
 
-import type { ResearchArtifact } from './researchArtifact';
+import type { ResearchArtifact } from '@/types/researchArtifact';
 
 // ============ Request Types ============
 

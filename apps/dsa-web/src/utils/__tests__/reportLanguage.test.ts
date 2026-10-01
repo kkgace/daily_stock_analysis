@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { getReportText, normalizeReportLanguage } from '../reportLanguage';
-import { getSentimentLabel } from '../../types/analysis';
+import { getReportText, normalizeReportLanguage } from '@/utils/reportLanguage';
+import { getSentimentLabel } from '@/types/analysis';
 
 describe('reportLanguage ko support', () => {
   it('normalizes ko and falls back to zh for unknown', () => {

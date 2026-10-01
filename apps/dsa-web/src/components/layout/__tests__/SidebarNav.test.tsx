@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
-import { SidebarNav } from '../SidebarNav';
+import { SidebarNav } from '@/components/layout/SidebarNav';
 
 const mockLogout = vi.fn().mockResolvedValue(undefined);
 const mockGetScreeningStatus = vi.fn().mockResolvedValue({ enabled: false, available: false });
@@ -11,19 +11,19 @@ const mockThemeToggle = vi.fn(({ collapsed }: { collapsed?: boolean }) => (
 
 const completionBadgeState = { value: true };
 
-vi.mock('../../../contexts/AuthContext', () => ({
+vi.mock('@/features/auth/contexts/AuthContext', () => ({
   useAuth: () => ({
     authEnabled: true,
     logout: mockLogout,
   }),
 }));
 
-vi.mock('../../../stores/agentChatStore', () => ({
+vi.mock('@/features/chat/stores/agentChatStore', () => ({
   useAgentChatStore: (selector: (state: { completionBadge: boolean }) => unknown) =>
     selector({ completionBadge: completionBadgeState.value }),
 }));
 
-vi.mock('../../../api/screening', () => ({
+vi.mock('@/features/screening/api/screening', () => ({
   SCREENING_CONFIG_CHANGED_EVENT: 'screening-config-changed',
   SYSTEM_CONFIG_CHANGED_EVENT: 'dsa-system-config-changed',
   screeningApi: {
@@ -31,7 +31,7 @@ vi.mock('../../../api/screening', () => ({
   },
 }));
 
-vi.mock('../../theme/ThemeToggle', () => ({
+vi.mock('@/components/theme/ThemeToggle', () => ({
   ThemeToggle: (props: { collapsed?: boolean }) => mockThemeToggle(props),
 }));
 

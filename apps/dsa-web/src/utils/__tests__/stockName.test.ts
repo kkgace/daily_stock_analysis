@@ -2,7 +2,7 @@ import {
   truncateStockName,
   isStockNameTruncated,
   STOCK_NAME_MAX_LENGTH,
-} from '../stockName';
+} from '@/utils/stockName';
 import { describe, expect, test } from 'vitest';
 
 describe('truncateStockName', () => {

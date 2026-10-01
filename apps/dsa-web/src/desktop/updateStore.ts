@@ -1,4 +1,4 @@
-import type { DesktopUpdateState } from './runtime';
+import type { DesktopUpdateState } from '@/desktop/runtime';
 
 type SharedDesktopUpdateListener = () => void;
 

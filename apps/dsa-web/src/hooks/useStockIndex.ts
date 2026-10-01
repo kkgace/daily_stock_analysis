@@ -5,9 +5,9 @@
  */
 
 import { useState, useEffect } from 'react';
-import type { StockIndexItem } from '../types/stockIndex';
-import { loadStockIndex } from '../utils/stockIndexLoader';
-import type { IndexLoadResult } from '../utils/stockIndexLoader';
+import type { StockIndexItem } from '@/types/stockIndex';
+import { loadStockIndex } from '@/utils/stockIndexLoader';
+import type { IndexLoadResult } from '@/utils/stockIndexLoader';
 
 export interface UseStockIndexResult {
   /** Stock index data */

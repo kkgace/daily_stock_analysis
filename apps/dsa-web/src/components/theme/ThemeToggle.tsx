@@ -2,9 +2,9 @@ import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Check, Monitor, Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { useUiLanguage } from '../../contexts/UiLanguageContext';
-import type { UiTextKey } from '../../i18n/uiText';
-import { cn } from '../../utils/cn';
+import { useUiLanguage } from '@/contexts/UiLanguageContext';
+import type { UiTextKey } from '@/i18n/uiText';
+import { cn } from '@/utils/cn';
 
 type ThemeOption = 'light' | 'dark' | 'system';
 type ThemeToggleVariant = 'default' | 'nav' | 'rail';

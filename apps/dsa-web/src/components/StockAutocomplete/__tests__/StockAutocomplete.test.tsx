@@ -5,8 +5,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import type React from 'react';
-import { StockAutocomplete } from '../StockAutocomplete';
-import type { StockIndexItem, StockSuggestion } from '../../../types/stockIndex';
+import { StockAutocomplete } from '@/components/StockAutocomplete/StockAutocomplete';
+import type { StockIndexItem, StockSuggestion } from '@/types/stockIndex';
 
 let stockIndexHookImpl: () => {
   index: StockIndexItem[];
@@ -35,11 +35,11 @@ let autocompleteHookImpl: () => {
 };
 
 // Mock the hooks
-vi.mock('../../../hooks/useStockIndex', () => ({
+vi.mock('@/hooks/useStockIndex', () => ({
   useStockIndex: () => stockIndexHookImpl(),
 }));
 
-vi.mock('../../../hooks/useAutocomplete', () => ({
+vi.mock('@/hooks/useAutocomplete', () => ({
   useAutocomplete: () => autocompleteHookImpl(),
 }));
 

@@ -9,11 +9,11 @@ import { Component, useRef, useEffect, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { useStockIndex } from '../../hooks/useStockIndex';
-import { useAutocomplete } from '../../hooks/useAutocomplete';
-import { SuggestionsList } from './SuggestionsList';
-import { cn } from '../../utils/cn';
-import type { Market } from '../../types/stockIndex';
+import { useStockIndex } from '@/hooks/useStockIndex';
+import { useAutocomplete } from '@/hooks/useAutocomplete';
+import { SuggestionsList } from '@/components/StockAutocomplete/SuggestionsList';
+import { cn } from '@/utils/cn';
+import type { Market } from '@/types/stockIndex';
 
 const AUTOCOMPLETE_INPUT_CLASS =
   'input-surface input-focus-glow h-11 w-full rounded-xl border bg-transparent px-4 text-sm transition-all focus:outline-none disabled:cursor-not-allowed disabled:opacity-60';

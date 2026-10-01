@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { agentApi } from '../agent';
+import { agentApi } from '@/api/agent';
 
 const get = vi.hoisted(() => vi.fn());
 
-vi.mock('../index', () => ({
+vi.mock('@/api/index', () => ({
   default: {
     get,
     post: vi.fn(),

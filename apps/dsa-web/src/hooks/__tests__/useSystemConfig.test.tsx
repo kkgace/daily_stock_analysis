@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useSystemConfig } from '../useSystemConfig';
+import { useSystemConfig } from '@/hooks/useSystemConfig';
 
 const { getConfig, validate, update } = vi.hoisted(() => ({
   getConfig: vi.fn(),
@@ -8,7 +8,7 @@ const { getConfig, validate, update } = vi.hoisted(() => ({
   update: vi.fn(),
 }));
 
-vi.mock('../../api/systemConfig', () => ({
+vi.mock('@/features/settings/api/systemConfig', () => ({
   systemConfigApi: {
     getConfig,
     validate,

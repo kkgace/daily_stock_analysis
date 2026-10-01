@@ -4,12 +4,12 @@
 
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useAutocomplete } from '../useAutocomplete';
-import type { StockIndexItem } from '../../types/stockIndex';
+import { useAutocomplete } from '@/hooks/useAutocomplete';
+import type { StockIndexItem } from '@/types/stockIndex';
 
 const searchStocksMock = vi.fn();
 
-vi.mock('../../utils/searchStocks', () => ({
+vi.mock('@/utils/searchStocks', () => ({
   searchStocks: (...args: unknown[]) => searchStocksMock(...args),
 }));
 

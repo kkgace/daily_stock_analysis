@@ -14,7 +14,7 @@ import {
   isStockCodeLike,
   isStockNameLike,
   isPinyinLike,
-} from '../normalizeQuery';
+} from '@/utils/normalizeQuery';
 import { describe, expect, test } from 'vitest';
 
 describe('normalizeQuery', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { markdownToPlainText } from '../markdown';
+import { markdownToPlainText } from '@/utils/markdown';
 
 /**
  * Stock report specific tests for markdownToPlainText

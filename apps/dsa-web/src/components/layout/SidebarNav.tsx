@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import { Activity, BarChart3, Bell, BriefcaseBusiness, Gauge, Home, LogOut, MessageSquareQuote, Search, Settings2 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
-import { SCREENING_CONFIG_CHANGED_EVENT, SYSTEM_CONFIG_CHANGED_EVENT, screeningApi } from '../../api/screening';
-import { useAuth } from '../../contexts/AuthContext';
-import { useAgentChatStore } from '../../stores/agentChatStore';
-import { useUiLanguage } from '../../contexts/UiLanguageContext';
-import type { UiTextKey } from '../../i18n/uiText';
-import { cn } from '../../utils/cn';
-import { ConfirmDialog } from '../common/ConfirmDialog';
-import { StatusDot } from '../common/StatusDot';
-import { UiLanguageToggle } from '../i18n/UiLanguageToggle';
-import { ThemeToggle } from '../theme/ThemeToggle';
+import { SCREENING_CONFIG_CHANGED_EVENT, SYSTEM_CONFIG_CHANGED_EVENT, screeningApi } from '@/features/screening/api/screening';
+import { useAuth } from '@/features/auth/contexts/AuthContext';
+import { useAgentChatStore } from '@/features/chat/stores/agentChatStore';
+import { useUiLanguage } from '@/contexts/UiLanguageContext';
+import type { UiTextKey } from '@/i18n/uiText';
+import { cn } from '@/utils/cn';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { StatusDot } from '@/components/ui/StatusDot';
+import { UiLanguageToggle } from '@/components/i18n/UiLanguageToggle';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
 type SidebarNavProps = {
   collapsed?: boolean;

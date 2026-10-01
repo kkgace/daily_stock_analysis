@@ -3,17 +3,17 @@ import { lazy } from 'react';
 import type React from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
-import { RouteOutletBoundary } from '../RouteBoundary';
-import { Shell } from '../Shell';
+import { RouteOutletBoundary } from '@/components/layout/RouteBoundary';
+import { Shell } from '@/components/layout/Shell';
 
-vi.mock('../../../contexts/AuthContext', () => ({
+vi.mock('@/features/auth/contexts/AuthContext', () => ({
   useAuth: () => ({
     authEnabled: false,
     logout: vi.fn().mockResolvedValue(undefined),
   }),
 }));
 
-vi.mock('../../../stores/agentChatStore', () => {
+vi.mock('@/features/chat/stores/agentChatStore', () => {
   const state = { completionBadge: false };
 
   return {

@@ -2,8 +2,8 @@
  * searchStocks unit tests.
  */
 
-import { searchStocks } from '../searchStocks';
-import type { StockIndexItem } from '../../types/stockIndex';
+import { searchStocks } from '@/utils/searchStocks';
+import type { StockIndexItem } from '@/types/stockIndex';
 import { describe, expect, test } from 'vitest';
 
 const mockIndex: StockIndexItem[] = [

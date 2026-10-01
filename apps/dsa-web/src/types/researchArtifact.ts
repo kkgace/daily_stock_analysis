@@ -1,4 +1,4 @@
-import type { DecisionAction } from './analysis';
+import type { DecisionAction } from '@/types/analysis';
 
 export type ResearchQualityLevel = 'good' | 'usable' | 'limited' | 'poor' | 'unknown';
 export type ResearchDirection = 'bullish' | 'bearish' | 'neutral' | 'unknown';

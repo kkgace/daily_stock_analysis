@@ -10,8 +10,8 @@ import {
   findStockInIndex,
   getPopularStocks,
   groupStocksByMarket,
-} from '../stockIndexLoader';
-import type { StockIndexItem } from '../../types/stockIndex';
+} from '@/utils/stockIndexLoader';
+import type { StockIndexItem } from '@/types/stockIndex';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 // Mock fetch

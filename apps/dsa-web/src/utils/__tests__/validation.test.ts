@@ -3,7 +3,7 @@ import {
   isObviouslyInvalidStockQuery,
   looksLikeStockCode,
   validateStockCode,
-} from '../validation';
+} from '@/utils/validation';
 
 describe('stock code validation', () => {
   test.each([

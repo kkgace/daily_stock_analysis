@@ -1,12 +1,12 @@
-import type { UiTextKey } from '../i18n/uiText';
-import { WEB_BUILD_INFO } from '../utils/constants';
+import type { UiTextKey } from '@/i18n/uiText';
+import { WEB_BUILD_INFO } from '@/utils/constants';
 import {
   getDesktopAppVersion,
   normalizeDesktopRuntimeNumber,
   trimDesktopRuntimeString,
   type DesktopUpdateState,
   type RawDesktopUpdateState,
-} from './runtime';
+} from '@/desktop/runtime';
 
 export type DesktopUpdateNotice = {
   title: string;

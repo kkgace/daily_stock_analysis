@@ -1,4 +1,4 @@
-import type { UiLanguage } from '../i18n/uiText';
+import type { UiLanguage } from '@/i18n/uiText';
 
 export const UI_LANGUAGE_STORAGE_KEY = 'dsa.uiLanguage';
 

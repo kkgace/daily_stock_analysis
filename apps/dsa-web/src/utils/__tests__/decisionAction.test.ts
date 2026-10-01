@@ -5,7 +5,7 @@ import {
   getLegacyDecisionAction,
   getDecisionActionTone,
   getLegacyDecisionActionLabel,
-} from '../decisionAction';
+} from '@/utils/decisionAction';
 
 const englishLabels: DecisionActionLabelMap = {
   buy: 'Buy',

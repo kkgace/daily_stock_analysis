@@ -3,8 +3,8 @@ import type {
   MarketPhaseSummary,
   MarketPhaseValue,
   ReportLanguage,
-} from '../types/analysis';
-import { normalizeReportLanguage } from './reportLanguage';
+} from '@/types/analysis';
+import { normalizeReportLanguage } from '@/utils/reportLanguage';
 
 const REQUEST_PHASE_LABELS: Record<ReportLanguage, Record<AnalysisPhase, string>> = {
   zh: {

@@ -1,10 +1,10 @@
 import type React from 'react';
 import { Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
-import { useUiLanguage } from '../../contexts/UiLanguageContext';
-import type { UiTextKey } from '../../i18n/uiText';
-import { UiLanguageToggle } from '../i18n/UiLanguageToggle';
-import { ThemeToggle } from '../theme/ThemeToggle';
+import { useUiLanguage } from '@/contexts/UiLanguageContext';
+import type { UiTextKey } from '@/i18n/uiText';
+import { UiLanguageToggle } from '@/components/i18n/UiLanguageToggle';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
 type ShellHeaderProps = {
   collapsed: boolean;

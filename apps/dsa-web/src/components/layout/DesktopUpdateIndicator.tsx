@@ -2,12 +2,12 @@ import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Download, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useUiLanguage } from '../../contexts/UiLanguageContext';
-import { getDesktopUpdateBadgeTone } from '../../desktop/updateState';
-import { useDesktopUpdate } from '../../hooks/useDesktopUpdate';
-import { cn } from '../../utils/cn';
-import { Button } from '../common/Button';
-import { StatusDot } from '../common/StatusDot';
+import { useUiLanguage } from '@/contexts/UiLanguageContext';
+import { getDesktopUpdateBadgeTone } from '@/desktop/updateState';
+import { useDesktopUpdate } from '@/hooks/useDesktopUpdate';
+import { cn } from '@/utils/cn';
+import { Button } from '@/components/ui/Button';
+import { StatusDot } from '@/components/ui/StatusDot';
 
 export const DesktopUpdateIndicator: React.FC = () => {
   const { t } = useUiLanguage();

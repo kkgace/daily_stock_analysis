@@ -1,4 +1,4 @@
-import type { MarketReviewRegion } from '../types/analysis';
+import type { MarketReviewRegion } from '@/types/analysis';
 
 export type { MarketReviewRegion };
 

@@ -1,4 +1,4 @@
-import type { DecisionAction } from '../types/analysis';
+import type { DecisionAction } from '@/types/analysis';
 
 export type DecisionActionTone = 'success' | 'warning' | 'danger' | 'default';
 export type DecisionActionLabelMap = Record<DecisionAction, string>;

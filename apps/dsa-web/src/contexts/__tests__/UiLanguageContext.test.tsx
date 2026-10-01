@@ -2,14 +2,14 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import {
   UiLanguageProvider,
-} from '../UiLanguageContext';
+} from '@/contexts/UiLanguageContext';
 import {
   getRuntimeInitialLanguage,
   persistUiLanguage,
   resolveInitialUiLanguage,
   UI_LANGUAGE_STORAGE_KEY,
-} from '../../utils/uiLanguage';
-import { UiLanguageToggle } from '../../components/i18n/UiLanguageToggle';
+} from '@/utils/uiLanguage';
+import { UiLanguageToggle } from '@/components/i18n/UiLanguageToggle';
 
 function createStorage(value: string | null): Storage {
   const store = new Map<string, string>();

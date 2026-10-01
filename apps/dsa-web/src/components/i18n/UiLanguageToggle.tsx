@@ -1,7 +1,7 @@
 import type React from 'react';
 import { Languages } from 'lucide-react';
-import { useUiLanguage } from '../../contexts/UiLanguageContext';
-import { cn } from '../../utils/cn';
+import { useUiLanguage } from '@/contexts/UiLanguageContext';
+import { cn } from '@/utils/cn';
 
 type UiLanguageToggleVariant = 'default' | 'nav' | 'rail';
 

@@ -2,13 +2,13 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { Menu } from 'lucide-react';
 import { Outlet } from 'react-router-dom';
-import { Drawer } from '../common/Drawer';
-import { SidebarNav } from './SidebarNav';
-import { DesktopUpdateIndicator } from './DesktopUpdateIndicator';
-import { cn } from '../../utils/cn';
-import { ThemeToggle } from '../theme/ThemeToggle';
-import { UiLanguageToggle } from '../i18n/UiLanguageToggle';
-import { useUiLanguage } from '../../contexts/UiLanguageContext';
+import { Drawer } from '@/components/ui/Drawer';
+import { SidebarNav } from '@/components/layout/SidebarNav';
+import { DesktopUpdateIndicator } from '@/components/layout/DesktopUpdateIndicator';
+import { cn } from '@/utils/cn';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
+import { UiLanguageToggle } from '@/components/i18n/UiLanguageToggle';
+import { useUiLanguage } from '@/contexts/UiLanguageContext';
 
 type ShellProps = {
   children?: React.ReactNode;

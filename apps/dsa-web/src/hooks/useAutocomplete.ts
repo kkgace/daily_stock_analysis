@@ -5,9 +5,9 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { StockIndexItem, StockSuggestion } from '../types/stockIndex';
-import { searchStocks } from '../utils/searchStocks';
-import { SEARCH_CONFIG } from '../utils/stockIndexFields';
+import type { StockIndexItem, StockSuggestion } from '@/types/stockIndex';
+import { searchStocks } from '@/utils/searchStocks';
+import { SEARCH_CONFIG } from '@/utils/stockIndexFields';
 
 export interface UseAutocompleteOptions {
   /** Minimum query length */

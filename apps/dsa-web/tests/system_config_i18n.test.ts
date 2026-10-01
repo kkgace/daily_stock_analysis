@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { UI_TEXT } from '../src/i18n/uiText';
-import { getSettingsHelpContent } from '../src/locales/settingsHelp';
-import { getFieldDescriptionZh, getFieldOptionLabelZh, getFieldTitleZh } from '../src/utils/systemConfigI18n';
+import { getSettingsHelpContent } from '../src/features/settings/locales/settingsHelp';
+import { getFieldDescriptionZh, getFieldOptionLabelZh, getFieldTitleZh } from '../src/features/settings/utils/systemConfigI18n';
 
 const requiredLocalizedKeys = [
   'TICKFLOW_API_KEY',

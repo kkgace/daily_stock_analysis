@@ -7,7 +7,7 @@ import {
   normalizeStockCode,
   resolveRegisteredIndexCanonical,
   toAssetAwareCodeKey,
-} from '../stockCode';
+} from '@/utils/stockCode';
 
 describe('normalizeStockCode', () => {
   it('keeps clean A-share codes as-is', () => {

@@ -1,4 +1,4 @@
-import type { ReportLanguage } from '../types/analysis';
+import type { ReportLanguage } from '@/types/analysis';
 
 export const normalizeReportLanguage = (value?: string | null): ReportLanguage =>
   value === 'en' ? 'en' : value === 'ko' ? 'ko' : 'zh';

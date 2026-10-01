@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { cn } from '../cn';
+import { cn } from '@/utils/cn';
 
 describe('cn utility', () => {
   it('should merge basic tailwind classes', () => {

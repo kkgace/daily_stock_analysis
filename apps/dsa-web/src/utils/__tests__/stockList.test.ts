@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseStockListValue, serializeStockListValue } from '../stockList';
+import { parseStockListValue, serializeStockListValue } from '@/utils/stockList';
 
 describe('stockList utils', () => {
   it('parses common copy/paste separators', () => {

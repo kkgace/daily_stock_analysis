@@ -2,7 +2,7 @@ import type React from 'react';
 import { Component, Suspense } from 'react';
 import type { ErrorInfo } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { useUiLanguage } from '../../contexts/UiLanguageContext';
+import { useUiLanguage } from '@/contexts/UiLanguageContext';
 
 type PageLoadingFallbackProps = {
   fullPage?: boolean;
