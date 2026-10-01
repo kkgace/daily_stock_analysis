@@ -54,7 +54,7 @@ export const PositionsSection: React.FC<PositionsSectionProps> = ({
       />
     ) : (
       <div className="overflow-x-auto">
-        <table className="min-w-[860px] w-full text-sm">
+        <table className="min-w-[860px] w-full text-sm tabular-nums">
           <thead className="text-xs text-secondary border-b border-white/10">
             <tr>
               <th className="text-left py-2 pr-2">{text.account}</th>

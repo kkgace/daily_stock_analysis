@@ -84,3 +84,36 @@ feature-first 重组 → 拆分巨型页面/store → 统一 i18n → 视觉 tok
 - 验证：screening 36/36；全仓 1219 passed / 1 failed（AlertRuleForm 既有）/ 2 skipped；lint 0 error + 2 warning（既有）；build ✅。
 - **Phase 2 收口状态**：chat 128/128、dashboard 1917→895（61/61）、portfolio store 1117→41、screening 2127→360（36/36）全部完成。
 - 下一步 Phase 3：src/i18n/uiText.ts（2011 行）拆键域 + settingsHelp.ts（2564 行）归位。
+
+## Round 12（Phase 3 ✅ i18n 键域拆分完成）
+- checkpoint baseline：commit 45536e3c（Phase 1+2 全量，384 files）。
+- src/i18n/uiText.ts 2011→55 行装配器；978 键 × zh/en 拆入 src/i18n/domains/ 9 个键域文件（按 feature 对齐）：
+  - common(25) / shell(66: language+theme+layout+routeError+notFound) / login(19) / home(182: home+history+stockBar+watchlist+stockTrend+taskPanel+report) / runFlow(106) / decisionSignals(206) / settings(313) / chat(25) / usage(36)。
+- 公共 API 完全不变：UI_TEXT / UiTextKey / UiLanguage / UiTextParams / formatUiText 留在 uiText.ts；48 个消费方零改动。
+- 类型安全保持：zh 各域 `as const`；en 各域 `Record<keyof typeof zh域, string>`（域内缺漏/多余键编译期报错）；装配层 `Record<UiTextKey, string>` 兜跨域完整性。
+- 事故与修复：装配器曾把 formatUiText 重写为 split/join 多遍替换（与原单遍 regex replace 语义不同——参数值含占位符时会被二次替换）；已逐字还原原实现。
+- settingsHelp.ts 已在 Phase 1 归位 features/settings/locales/（确认无需再动）。
+- 验证：tsc ✅；lint 0 error + 2 warning（既有）；i18n 消费方测试 13/13；全仓 1219 passed / 1 failed（既有）/ 2 skipped；build ✅。
+- 下一步 Phase 4：视觉体系重构（design tokens + Shell）；PR 需附截图。
+
+## Round 13（Phase 4 ✅ 视觉体系：design tokens 架构统一）
+用户确认范围：B（完整视觉重构）。实际落地为「token 架构系统化 + 双青色统一 + 暗色对比度修正」，无破坏性 re-skin。
+- **Token 原语去重**（index.css）：新增 --accent-secondary-hsl / --primary-deep-hsl / --accent-hot-hsl / --accent-hot-bright-hsl / --on-accent（亮暗双值）；60 处内联 HSL 复制（193 100% 43% ×17、247 84% 66/72% ×24、190 100% 50% ×9、191 100% 40% ×3 等）全部改为 var() 间接引用——单一调源头，改一处即全主题生效。
+- **双青色统一**：settings 域原本使用 190 100% 50%（与全局 primary 193 100% 43% 漂移）→ 统一为 var(--primary)；dark gradient rgba(0,212,255) 字面量 → var(--primary)。唯一可见变化点。
+- **暗色对比度修正**：dark --color-warning 37 92% 50%→40 92% 60%、--color-danger 0 90% 55%→0 90% 64%、--color-success 提亮至 152 60% 52%；--shell-sidebar-border 修复了暗色缺失（此前暗色误用亮色 193 hue，现自动跟随主题）。
+- **新 accent-hot 语义族**（热点橙）：注册 tailwind config（DEFAULT/bright）+ 亮暗双值；HotspotsSection 9 处、SuggestionsList BSE 徽章、MiniSparkline SVG stroke/fill（#f97316/#3b82f6→hsl var）全部语义化。
+- **色板清扫 12 文件**：portfolio 删除按钮 red-400/100→danger 族；settings 3 卡 amber-700/300→warning；LLMChannelEditor rose→danger；StockBarItem amber-400+glow→warning；ChatComposer slate/amber 提示框→border/muted+warning；ConfirmDialog red→danger；Pagination text-slate-950→text-on-accent（新 token，固定深色 on 亮青底，双主题保证对比度）；DecisionSignalTimeline 图例点 hex→hsl var；ScoreGauge/echarts/recharts SVG/canvas 字面量为技术限制合法保留（CSS var 在 canvas 不解析）；JsonViewer 终端暗色代码块与测试锁定类保留；LoginPage 品牌装饰保留。
+- **config 去字面量**：primary-gradient #00d4ff/#00a8cc、glow-cyan/purple/success/danger、shadow-cyan/20/22 全部 token 化。
+- **数字排版**：screening 候选表、backtest 表、portfolio 持仓表加 tabular-nums（金融数据等宽对齐）。
+- 验证：tsc ✅；lint 0 error + 2 warning（既有）；受影响面测试 216+68 全过；全仓最终验证见下。
+- ⚠️ UI 变更截图：按 AGENTS.md，PR 需附亮/暗主题截图；我无法操作浏览器，需要用户在 PR 前补充（建议：首页/选股热点/设置/登录 × 亮暗双主题前后对比）。
+
+## Round 14（收尾 ✅ 方案 B 全部完成）
+- 最终全仓验证：tsc ✅；lint 0 error + 2 warning（既有）；测试 1219 passed / 1 failed（AlertRuleForm JP/KR 既有）/ 2 skipped；build ✅ —— 与重构前基线完全一致。
+- 清理（用户确认）：删除 apps/dsa-web/scripts/migrate-{feature-first,fixups}.mjs（一次性迁移脚本，已执行完毕）；REFACTOR-PROGRESS.md 保留为迁移历史记录。
+- 四阶段成果：
+  - Phase 1 feature-first 目录迁移 + @/ 别名 ✅
+  - Phase 2 巨型页面/store 拆分 ✅（chat 993 行页面拆至 7 组件 + 8 hooks；dashboard HomePage 1917→895；portfolio store 1117→41；screening 2127→360）
+  - Phase 3 i18n 键域拆分 ✅（uiText.ts 2011→55 装配器 + 9 键域文件，公共 API 不变）
+  - Phase 4 视觉体系 ✅（token 原语去重 60 处、双青色统一、暗色对比度修正、accent-hot 语义族、12 文件色板清扫、tabular-nums）
+- ⚠️ 待办（PR 前，需用户执行）：按 AGENTS.md 为 UI 变更 PR 附亮/暗双主题截图（建议页面：首页、选股热点、设置、登录；settings 青色统一与暗色 warning/danger 对比度变化最值得对比）。

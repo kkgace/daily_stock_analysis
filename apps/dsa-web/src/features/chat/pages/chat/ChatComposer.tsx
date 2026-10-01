@@ -98,17 +98,17 @@ export const ChatComposer: React.FC<ChatComposerProps> = ({
     <div className="space-y-3">
       {chatError ? <ApiErrorAlert error={chatError} /> : null}
       {terminalStatus === 'cancelled' ? (
-        <div role="status" className="rounded-xl border border-slate-500/20 bg-slate-500/5 px-4 py-3 text-sm">
+        <div role="status" className="rounded-xl border border-border/50 bg-muted/50 px-4 py-3 text-sm">
           {t('chat.analysisStopped')}
         </div>
       ) : null}
       {terminalStatus === 'timeout' ? (
-        <div role="status" className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm">
+        <div role="status" className="rounded-xl border border-warning/20 bg-warning/5 px-4 py-3 text-sm">
           {t('chat.analysisTimedOut')}
         </div>
       ) : null}
       {stopError ? (
-        <div role="alert" className="rounded-xl border border-amber-500/20 bg-amber-500/5 px-4 py-3 text-sm">
+        <div role="alert" className="rounded-xl border border-warning/20 bg-warning/5 px-4 py-3 text-sm">
           {t('chat.stopRequestFailed')}
         </div>
       ) : null}

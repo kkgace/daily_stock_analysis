@@ -1018,7 +1018,7 @@ const PortfolioPage: React.FC = () => {
                   type="button"
                   onClick={openAccountDeleteDialog}
                   disabled={!canDeleteSelectedAccount}
-                  className="btn-secondary text-sm flex-1 border-red-400/40 text-red-100 hover:bg-red-500/15 disabled:border-white/10 disabled:text-secondary"
+                  className="btn-secondary text-sm flex-1 border-danger/40 text-danger hover:bg-danger/15 disabled:border-border/40 disabled:text-secondary"
                 >
                   {accountDeleteLoading ? text.deletingAccount : text.deleteAccount}
                 </button>

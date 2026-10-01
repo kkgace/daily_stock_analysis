@@ -50,7 +50,7 @@ export const CandidatesSection: React.FC<CandidatesSectionProps> = ({
           </div>
         ) : (
           <div className="overflow-hidden rounded-xl border border-border">
-            <table className="w-full min-w-[860px] border-collapse text-sm">
+            <table className="w-full min-w-[860px] border-collapse text-sm tabular-nums">
               <thead className="bg-surface text-left text-xs text-secondary-text">
                 <tr>
                   <th className="w-14 px-4 py-3 font-semibold">#</th>

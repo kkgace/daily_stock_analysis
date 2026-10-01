@@ -40,7 +40,7 @@ export const ConfigBackupCard: React.FC<ConfigBackupCardProps> = ({
   >
     <div className="space-y-4">
       {!isEnvBackupAllowed ? (
-        <p className="text-xs leading-6 text-amber-700 dark:text-amber-300">
+        <p className="text-xs leading-6 text-warning">
           {t('settings.disabledAuthBackupWarning')}
         </p>
       ) : null}

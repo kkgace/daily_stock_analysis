@@ -35,7 +35,7 @@ export const ScreeningSettingsCard: React.FC<ScreeningSettingsCardProps> = ({
         <p className="mt-1 text-xs leading-6 text-muted-text">
           {t('settings.screeningSummary')}
         </p>
-        <p className="mt-2 text-xs leading-6 text-amber-700 dark:text-amber-300">
+        <p className="mt-2 text-xs leading-6 text-warning">
           {t('settings.screeningRisk')}
         </p>
       </div>

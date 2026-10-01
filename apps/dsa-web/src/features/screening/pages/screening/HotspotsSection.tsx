@@ -78,7 +78,7 @@ export const HotspotsSection: React.FC<HotspotsSectionProps> = ({
       <section className="rounded-2xl border border-border/80 bg-card/95 p-4 shadow-soft-card">
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex items-start gap-3">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-orange-500/10 text-orange-500 shadow-[0_10px_30px_rgba(249,115,22,0.16)]">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent-hot/10 text-accent-hot shadow-[0_10px_30px_hsl(var(--accent-hot-hsl)/0.16)]">
               <Flame className="h-5 w-5" />
             </span>
             <h2 className="text-lg font-bold tracking-normal text-foreground">热点题材</h2>
@@ -137,8 +137,8 @@ export const HotspotsSection: React.FC<HotspotsSectionProps> = ({
                 key={`${item.topic}-${item.rank ?? ''}`}
                 className={`group relative min-h-[116px] overflow-hidden rounded-xl border px-3 py-3 text-left transition-all ${
                   selected
-                    ? 'border-orange-400 bg-gradient-to-br from-orange-500/10 via-card to-card shadow-[0_0_0_1px_rgba(249,115,22,0.16),0_18px_44px_rgba(249,115,22,0.14)]'
-                    : 'border-border/80 bg-card hover:-translate-y-0.5 hover:border-orange-300/70 hover:shadow-soft-card'
+                    ? 'border-accent-hot-bright bg-gradient-to-br from-accent-hot/10 via-card to-card shadow-[0_0_0_1px_hsl(var(--accent-hot-hsl)/0.16),0_18px_44px_hsl(var(--accent-hot-hsl)/0.14)]'
+                    : 'border-border/80 bg-card hover:-translate-y-0.5 hover:border-accent-hot/70 hover:shadow-soft-card'
                 }`}
                 type="button"
                 onClick={() => handleHotspotSelect(item.topic)}
@@ -147,7 +147,7 @@ export const HotspotsSection: React.FC<HotspotsSectionProps> = ({
                   <div className="flex min-w-0 items-start gap-3">
                     <span
                       className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-bold ${
-                        index < 3 ? 'bg-orange-500 text-white shadow-[0_8px_24px_rgba(249,115,22,0.24)]' : 'bg-surface text-secondary-text'
+                        index < 3 ? 'bg-accent-hot text-on-accent shadow-[0_8px_24px_hsl(var(--accent-hot-hsl)/0.24)]' : 'bg-surface text-secondary-text'
                       }`}
                     >
                       {index + 1}
@@ -162,7 +162,7 @@ export const HotspotsSection: React.FC<HotspotsSectionProps> = ({
                       </span>
                     </div>
                   </div>
-                  <span className="shrink-0 text-2xl font-black leading-none text-orange-500">
+                  <span className="shrink-0 text-2xl font-black leading-none text-accent-hot">
                     {formatNumber(item.heatScore, 0)}
                   </span>
                 </div>
@@ -226,7 +226,7 @@ export const HotspotsSection: React.FC<HotspotsSectionProps> = ({
                   </span>
                 ) : null}
                 {hotspotDetail?.stockCount != null ? (
-                  <span className="w-fit rounded-full bg-orange-500/10 px-3 py-1 text-xs font-semibold text-orange-500">
+                  <span className="w-fit rounded-full bg-accent-hot/10 px-3 py-1 text-xs font-semibold text-accent-hot">
                     概念股 {hotspotDetail.stockCount}
                   </span>
                 ) : null}
@@ -257,15 +257,15 @@ export const HotspotsSection: React.FC<HotspotsSectionProps> = ({
               <div className="grid gap-4 lg:grid-cols-[1fr_1.3fr]">
                 <div>
                   <p className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-secondary-text">
-                    <Clock3 className="h-3.5 w-3.5 text-orange-500" />
+                    <Clock3 className="h-3.5 w-3.5 text-accent-hot" />
                     发酵时间线
                   </p>
                   <div className="relative space-y-0 pl-4 before:absolute before:bottom-3 before:left-[5px] before:top-2 before:w-px before:bg-border">
                     {getHotspotRouteItems(hotspotDetail).map((item, index) => (
                       <div key={`${item.title}-${index}`} className="relative pb-4 last:pb-0">
-                        <span className="absolute -left-4 top-1 h-2.5 w-2.5 rounded-full border border-orange-400 bg-card" />
+                        <span className="absolute -left-4 top-1 h-2.5 w-2.5 rounded-full border border-accent-hot-bright bg-card" />
                         <div className="rounded-lg border border-border/70 bg-card/80 p-3">
-                          <p className="text-[11px] font-semibold text-orange-500">{getRouteTimeLabel(item)}</p>
+                          <p className="text-[11px] font-semibold text-accent-hot">{getRouteTimeLabel(item)}</p>
                           <p className="mt-1 text-xs font-semibold text-foreground">{formatHotspotRouteTitle(item.title)}</p>
                           <p className="mt-1 text-xs leading-5 text-secondary-text">{formatHotspotRouteDescription(item.description)}</p>
                           {item.url ? (

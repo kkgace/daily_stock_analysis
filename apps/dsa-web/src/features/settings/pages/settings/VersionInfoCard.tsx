@@ -119,7 +119,7 @@ export const VersionInfoCard: React.FC<VersionInfoCardProps> = ({
         </div>
       ) : null}
       {WEB_BUILD_INFO.isFallbackVersion ? (
-        <p className="text-xs leading-6 text-amber-700 dark:text-amber-300">
+        <p className="text-xs leading-6 text-warning">
           {t('settings.fallbackVersionWarning')}
         </p>
       ) : null}

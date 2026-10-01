@@ -67,7 +67,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
             disabled={confirmDisabled}
             className={`rounded-lg px-4 py-2 text-sm font-medium text-foreground transition-colors ${
               isDanger
-                ? 'bg-red-500/80 hover:bg-red-500 shadow-lg shadow-red-500/20'
+                ? 'bg-danger/80 hover:bg-danger shadow-lg shadow-danger/20'
                 : 'bg-cyan/80 hover:bg-cyan shadow-lg shadow-cyan/20'
             } disabled:cursor-not-allowed disabled:opacity-60`}
           >

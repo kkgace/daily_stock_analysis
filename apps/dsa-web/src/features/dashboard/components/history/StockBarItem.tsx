@@ -53,7 +53,7 @@ export const StockBarItemComponent: React.FC<StockBarItemProps> = ({
     >
       <div className="relative z-10 flex items-center gap-2.5">
         {isMarketReview ? (
-          <div className="w-1 h-8 rounded-full flex-shrink-0 bg-amber-400" style={{ boxShadow: '0 0 10px rgba(251,191,36,0.4)' }} />
+          <div className="w-1 h-8 rounded-full flex-shrink-0 bg-warning" style={{ boxShadow: '0 0 10px hsl(var(--color-warning) / 0.4)' }} />
         ) : sentimentColor ? (
           <div
             className="w-1 h-8 rounded-full flex-shrink-0"

@@ -620,7 +620,7 @@ const BacktestPage: React.FC = () => {
                 <span className="backtest-table-scroll-hint">{text.scrollHint}</span>
               </div>
               <div className="backtest-table-wrapper">
-                <table className="backtest-table min-w-[900px] w-full text-sm">
+                <table className="backtest-table min-w-[900px] w-full text-sm tabular-nums">
                   <thead className="backtest-table-head">
                     <tr className="text-left">
                       <th className="backtest-table-head-cell">{text.stock}</th>
